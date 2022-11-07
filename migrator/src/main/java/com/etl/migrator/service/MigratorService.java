@@ -1,6 +1,8 @@
 package com.etl.migrator.service;
 
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -133,5 +135,46 @@ public class MigratorService {
         	System.out.println(e.getMessage());
         }
         return Columns;
+    }
+
+    public String makeCollection(String fromTable, String fromIdKey, String toTable , String foreignKey) throws  SQLException{
+        int fromColumnsCount = getListColumns(fromTable).size();
+        System.out.println(fromColumnsCount);
+        ResultSet rs = databaseStatement.executeQuery("SELECT * FROM " + database_name + "." + fromTable+" INNER JOIN "+ database_name + "."+ toTable+" ON "+ fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey + " ORDER BY "+ fromIdKey+";");
+        System.out.println(rs);
+
+        ResultSetMetaData metadata = rs.getMetaData();
+        int columnCount = metadata.getColumnCount();
+        System.out.println();
+        String pivot = "";
+        Properties pojoFather = new Properties();
+        List<Properties> childrens = new ArrayList<Properties>();
+        while (rs.next()) {
+            if(pivot!=rs.getString(1)) {
+                pojoFather = new Properties();
+                //childrens.clear();
+                for (int i = 1; i <= 3; i++) {
+                    pojoFather.put(metadata.getColumnName(i), rs.getString(i));
+                }
+            }
+            else {
+                Properties pojoSon = new Properties();
+                for (int i = 4; i <= columnCount; i++) {
+                    //row += metadata.getColumnName(i) + "=" + rs.getString(i) + ", ";
+                    pojoSon.put(metadata.getColumnName(i), rs.getString(i));
+                }
+                childrens.add(pojoSon);
+                System.out.println(childrens.size());
+            }
+            System.out.println("Father: ");
+            pojoFather.put("childrens",childrens);
+            System.out.println(pojoFather.toString());
+            for (Properties p: childrens
+                 ) {
+                System.out.println("chill");
+                System.out.println(p);
+            }
+        }
+        return "inner collection success";
     }
 }
