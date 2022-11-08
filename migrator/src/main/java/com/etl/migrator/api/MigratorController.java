@@ -16,11 +16,7 @@ import java.time.LocalDate;
 public class MigratorController {
 
     private MigratorService migratorService;
-    
-    public MigratorController() throws SQLException{
-    	this.migratorService = new MigratorService();
-    }
-	
+
     @GetMapping("hello")
     public String hello(){
         return "hello " + LocalDate.now();
@@ -36,5 +32,11 @@ public class MigratorController {
     public ResponseEntity<Object> processCollection() throws SQLException {
     	//MigratorService migratorService = new MigratorService();
         return ResponseEntity.ok(migratorService.getCollection("department","idDepartment", "employee","department"));
+    }
+
+    @GetMapping("makeCollection")
+    public ResponseEntity<Object> makeCollection() throws SQLException {
+        MigratorService migratorService = new MigratorService();
+        return ResponseEntity.ok(migratorService.makeCollection("department","idDepartment", "employee","department"));
     }
 }
