@@ -1,7 +1,6 @@
 package com.etl.migrator.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
+import com.etl.migrator.dto.TableDTO;
 import org.springframework.stereotype.Service;
 
 import java.sql.*;
@@ -15,17 +14,17 @@ public class MigratorService {
     private Statement databaseStatement;
 
     public MigratorService() throws SQLException {
-        this.connection = DriverManager.getConnection("jdbc:mysql://localhost:3306","root", "developer345");
+        this.connection = DriverManager.getConnection("jdbc:mysql://localhost:3306", "root", "developer345");
         this.databaseMetaData = connection.getMetaData();
         this.databaseStatement = connection.createStatement();
     }
 
-    public String processMigration(){
+    public String processMigration() {
         List<String> tables = getTables(database_name);//getTables("blog");
         return "something";
     }
 
-    public List<String> getTables(String database){
+    public List<String> getTables(String database) {
         List<String> tables = new ArrayList<>();
 
         try (ResultSet resultSet =
@@ -35,7 +34,7 @@ public class MigratorService {
                 tables.add(tableName);
             }
         } catch (Exception e) {
-        	System.out.println("Error: " + e.getMessage());
+            System.out.println("Error: " + e.getMessage());
         }
 
         System.out.println("TABLES: ");
@@ -50,8 +49,8 @@ public class MigratorService {
 
     public void getColumns(String tableName) {
         List<String> Columns = new ArrayList<>();
-        try(ResultSet columns = databaseMetaData.getColumns(database_name,null, tableName, null)){
-            while(columns.next()) {
+        try (ResultSet columns = databaseMetaData.getColumns(database_name, null, tableName, null)) {
+            while (columns.next()) {
                 String columnName = columns.getString("COLUMN_NAME");
                 Columns.add(columnName);
 //                String columnSize = columns.getString("COLUMN_SIZE");
@@ -60,7 +59,7 @@ public class MigratorService {
 //                String isAutoIncrement = columns.getString("IS_AUTOINCREMENT");
             }
         } catch (SQLException e) {
-        	System.out.println(e.getMessage());
+            System.out.println(e.getMessage());
         }
 
         for (String column :
@@ -69,39 +68,39 @@ public class MigratorService {
         }
     }
 
-    public String getCollection(String fromTable, String fromIdKey, String toTable , String foreignKey) throws SQLException{
+    public String getCollection(String fromTable, String fromIdKey, String toTable, String foreignKey) throws SQLException {
         List<String> columns = getListColumns(fromTable);
-        ResultSet rs = databaseStatement.executeQuery("SELECT COUNT(*) FROM " + database_name + "." + fromTable+";");
+        ResultSet rs = databaseStatement.executeQuery("SELECT COUNT(*) FROM " + database_name + "." + fromTable + ";");
         // get the number of rows from the result set
         rs.next();
         int rowCount = rs.getInt(1);
         int pivot = 0;
         //Query to retrieve records
-        String query = "SELECT * FROM " + database_name + "." + fromTable+";";
+        String query = "SELECT * FROM " + database_name + "." + fromTable + ";";
         System.out.println(query);
         //Executing the query
         ResultSet rsc = databaseStatement.executeQuery(query);
 
-        try{
+        try {
             System.out.println("Results:");
-            while(rsc.next()){
+            while (rsc.next()) {
                 System.out.println("{");
                 for (String column : columns) {
                     System.out.println(column + ":" + rsc.getString(column));
                 }
-                System.out.println(toTable + ": \n{" );
-                addDocument(toTable,foreignKey,rsc.getInt(fromIdKey));
+                System.out.println(toTable + ": \n{");
+                addDocument(toTable, foreignKey, rsc.getInt(fromIdKey));
                 System.out.println("}");
             }
-      } finally {
-           return "get collection success";
-      }
+        } finally {
+            return "get collection success";
+        }
     }
 
     public void addDocument(String tableName, String foreign_key, int valKey) throws SQLException {
         List<String> columns = getListColumns(tableName);
         String query = "SELECT * FROM " + database_name + "." + tableName;
-        query += " WHERE " +foreign_key + "=" +valKey+";";
+        query += " WHERE " + foreign_key + "=" + valKey + ";";
         System.out.println(query);
         //Executing the query
         ResultSet rs = databaseStatement.executeQuery(query);
@@ -110,7 +109,7 @@ public class MigratorService {
             while (rs.next()) {
                 System.out.println("{");
                 for (String column : columns) {
-                    if(column != foreign_key) {
+                    if (column != foreign_key) {
                         System.out.println(rs.getString(column));
                     }
                 }
@@ -123,60 +122,55 @@ public class MigratorService {
 
     public List<String> getListColumns(String tableName) {
         List<String> Columns = new ArrayList<>();
-        try(ResultSet columns = databaseMetaData.getColumns(database_name,null, tableName, null)){
-            while(columns.next()) {
+        try (ResultSet columns = databaseMetaData.getColumns(database_name, null, tableName, null)) {
+            while (columns.next()) {
                 String columnName = columns.getString("COLUMN_NAME");
                 Columns.add(columnName);
             }
         } catch (SQLException e) {
-        	System.out.println(e.getMessage());
+            System.out.println(e.getMessage());
         }
         return Columns;
     }
 
-    public String makeCollection(String fromTable, String fromIdKey, String toTable , String foreignKey) throws  SQLException{
+    public String makeCollection(TableDTO tableParams) throws SQLException {
+
+        Properties pojoFather;
+        List<Properties> childrens = new ArrayList<>();
+        List<Properties> listFathers = new ArrayList<>();
+        String fromTable, fromIdKey, toTable, foreignKey;
+
+        // get params
+        fromTable = tableParams.getFromTable();
+        fromIdKey = tableParams.getFromIdKey();
+        toTable = tableParams.getToTable();
+        foreignKey = tableParams.getForeignKey();
+
         int fromColumnsCount = getListColumns(fromTable).size();
-        System.out.println(fromColumnsCount);
 
-
-        ResultSet rs = databaseStatement.executeQuery("SELECT "+ /*+ fromColumnsCount +", " + fromTable + ".*, " + toTable + */"* FROM " + database_name + "." + fromTable
-                +" INNER JOIN "+ database_name + "."+ toTable+" ON "+ fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey + " ORDER BY "+ fromIdKey+";");
+        ResultSet rs = databaseStatement.executeQuery("SELECT " + /*+ fromColumnsCount +", " + fromTable + ".*, " + toTable + */"* FROM " + database_name + "." + fromTable
+                + " INNER JOIN " + database_name + "." + toTable + " ON " + fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey + " ORDER BY " + fromIdKey + ";");
         //System.out.println(rs);
         ResultSetMetaData metadata = rs.getMetaData();
         int columnCount = metadata.getColumnCount();
-        System.out.println();
-        String pivot = "";
-        Properties pojoFather = new Properties();
-        List<Properties> childrens = new ArrayList<Properties>();
-        while (rs.next()) {
-            String firstColumn = rs.getString(1).toString();
-            //if(pivot.toString() != firstColumn.toString()) {
-                //pivot = firstColumn;
-                //System.out.println(pivot);
-                pojoFather = new Properties();
-                //childrens.clear();
-                //pojoFather.put("MasterTableCols", fromColumnsCount);
-                for (int i = 1; i <= fromColumnsCount; i++) {
-                    pojoFather.put(metadata.getColumnName(i), rs.getString(i));
-                }
 
-                Properties pojoSon = new Properties();
-                for (int i = fromColumnsCount+1; i <= columnCount; i++) {
-                    //row += metadata.getColumnName(i) + "=" + rs.getString(i) + ", ";
-                    pojoSon.put(metadata.getColumnName(i), rs.getString(i));
-                }
-                childrens.add(pojoSon);
-                pojoFather.put("children", pojoSon);
-           // }
+        while (rs.next()) {
+            pojoFather = new Properties();
+
+            for (int i = 1; i <= fromColumnsCount; i++) {
+                pojoFather.put(metadata.getColumnName(i), rs.getString(i));
+            }
+
+            Properties pojoSon = new Properties();
+            for (int i = fromColumnsCount + 1; i <= columnCount; i++) {
+                pojoSon.put(metadata.getColumnName(i), rs.getString(i));
+            }
+            childrens.add(pojoSon);
+            pojoFather.put("children", pojoSon);
             System.out.println("Row: " + pojoFather.toString());
-            //pojoFather.put("childrens",childrens);
-            //System.out.println(pojoFather.toString());
-            /*for (Properties p: childrens
-                 ) {
-                System.out.println("child");
-                System.out.println(p);
-            }*/
+            listFathers.add(pojoFather);
         }
-        return "inner collection success";
+        System.out.println("List Fathers:" + listFathers);
+        return listFathers.toString();
     }
 }
