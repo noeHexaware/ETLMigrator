@@ -1,11 +1,11 @@
 package com.etl.migrator.api;
 
+import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.service.MigratorService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -15,7 +15,9 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class MigratorController {
 
-    private MigratorService migratorService;
+    // @Autowired
+    private final MigratorService migratorService;
+
 
     @GetMapping("hello")
     public String hello(){
@@ -34,9 +36,15 @@ public class MigratorController {
         return ResponseEntity.ok(migratorService.getCollection("department","idDepartment", "employee","department"));
     }
 
-    @GetMapping("makeCollection")
-    public ResponseEntity<Object> makeCollection() throws SQLException {
-        MigratorService migratorService = new MigratorService();
-        return ResponseEntity.ok(migratorService.makeCollection("department","idDepartment", "employee","department"));
+//    @GetMapping("makeCollection")
+//    public ResponseEntity<Object> makeCollection() throws SQLException {
+//        MigratorService migratorService = new MigratorService();
+//        return ResponseEntity.ok(migratorService.makeCollection("department","idDepartment", "employee","department"));
+//    }
+
+    @PostMapping("makeCollectionsParams")
+    public  ResponseEntity<Object> makeCollectionParams(@RequestBody TableDTO tableParams) throws SQLException {
+        // MigratorService migratorService = new MigratorService();
+        return ResponseEntity.ok(migratorService.makeCollection(tableParams));
     }
 }
