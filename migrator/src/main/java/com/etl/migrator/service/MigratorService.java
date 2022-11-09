@@ -1,14 +1,13 @@
 package com.etl.migrator.service;
 
-
-import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import org.springframework.stereotype.Service;
 
 import java.sql.*;
 import java.util.*;
 
 @Service
-@Slf4j
 public class MigratorService {
     private Connection connection;
     private DatabaseMetaData databaseMetaData;
@@ -133,5 +132,51 @@ public class MigratorService {
         	System.out.println(e.getMessage());
         }
         return Columns;
+    }
+
+    public String makeCollection(String fromTable, String fromIdKey, String toTable , String foreignKey) throws  SQLException{
+        int fromColumnsCount = getListColumns(fromTable).size();
+        System.out.println(fromColumnsCount);
+
+
+        ResultSet rs = databaseStatement.executeQuery("SELECT "+ /*+ fromColumnsCount +", " + fromTable + ".*, " + toTable + */"* FROM " + database_name + "." + fromTable
+                +" INNER JOIN "+ database_name + "."+ toTable+" ON "+ fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey + " ORDER BY "+ fromIdKey+";");
+        //System.out.println(rs);
+        ResultSetMetaData metadata = rs.getMetaData();
+        int columnCount = metadata.getColumnCount();
+        System.out.println();
+        String pivot = "";
+        Properties pojoFather = new Properties();
+        List<Properties> childrens = new ArrayList<Properties>();
+        while (rs.next()) {
+            String firstColumn = rs.getString(1).toString();
+            //if(pivot.toString() != firstColumn.toString()) {
+                //pivot = firstColumn;
+                //System.out.println(pivot);
+                pojoFather = new Properties();
+                //childrens.clear();
+                //pojoFather.put("MasterTableCols", fromColumnsCount);
+                for (int i = 1; i <= fromColumnsCount; i++) {
+                    pojoFather.put(metadata.getColumnName(i), rs.getString(i));
+                }
+
+                Properties pojoSon = new Properties();
+                for (int i = fromColumnsCount+1; i <= columnCount; i++) {
+                    //row += metadata.getColumnName(i) + "=" + rs.getString(i) + ", ";
+                    pojoSon.put(metadata.getColumnName(i), rs.getString(i));
+                }
+                childrens.add(pojoSon);
+                pojoFather.put("children", pojoSon);
+           // }
+            System.out.println("Row: " + pojoFather.toString());
+            //pojoFather.put("childrens",childrens);
+            //System.out.println(pojoFather.toString());
+            /*for (Properties p: childrens
+                 ) {
+                System.out.println("child");
+                System.out.println(p);
+            }*/
+        }
+        return "inner collection success";
     }
 }
