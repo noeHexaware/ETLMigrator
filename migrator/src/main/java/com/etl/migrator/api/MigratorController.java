@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.etl.migrator.queueConfig.MessageProducer;
 import java.sql.SQLException;
 import java.time.LocalDate;
 
@@ -14,6 +14,9 @@ import java.time.LocalDate;
 @RequestMapping("api/v1")
 @RequiredArgsConstructor
 public class MigratorController {
+
+    @Autowired
+    private ApplicationContext context;
 
     // @Autowired
     private final MigratorService migratorService;
@@ -45,6 +48,13 @@ public class MigratorController {
     @PostMapping("makeCollectionsParams")
     public  ResponseEntity<Object> makeCollectionParams(@RequestBody TableDTO tableParams) throws SQLException {
         // MigratorService migratorService = new MigratorService();
-        return ResponseEntity.ok(migratorService.makeCollection(tableParams));
+        String data = migratorService.makeCollection(tableParams);
+
+        MessageProducer producer = context.getBean(MessageProducer.class);
+        //JSONParser parser = new JSONParser();
+        //JSONObject json = (JSONObject) parser.parse(data);
+        producer.sendMessage(data);
+
+        return ResponseEntity.ok(data);
     }
 }
