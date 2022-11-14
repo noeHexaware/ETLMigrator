@@ -19,7 +19,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.util.concurrent.ListenableFutureCallback;
 
-public static class MessageProducer {
+public class MessageProducer {
 
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;

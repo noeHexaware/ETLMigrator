@@ -19,7 +19,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.util.concurrent.ListenableFutureCallback;
 
-public static class MessageConsumer {
+public class MessageConsumer {
 
     private CountDownLatch latch = new CountDownLatch(3);
 

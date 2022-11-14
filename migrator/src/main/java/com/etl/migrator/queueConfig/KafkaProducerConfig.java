@@ -36,13 +36,13 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public MessageProducer messageProducer() {
+    MessageProducer messageProducer() {
         return new MessageProducer();
     }
 
     @Bean
-    public MessageListener messageListener() {
-        return new MessageListener();
+    MessageConsumer messageListener() {
+        return new MessageConsumer();
     }
 
     // @Bean

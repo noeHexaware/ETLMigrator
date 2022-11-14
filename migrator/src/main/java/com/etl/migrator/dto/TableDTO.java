@@ -11,5 +11,6 @@ public class TableDTO {
     private String fromIdKey;
     private String toTable;
     private String foreignKey;
+    private String db;
 
 }

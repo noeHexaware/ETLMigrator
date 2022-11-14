@@ -10,11 +10,11 @@ import java.util.*;
 public class MigratorService {
     private Connection connection;
     private DatabaseMetaData databaseMetaData;
-    private String database_name = "migration";
+    private String database_name = "migrator";
     private Statement databaseStatement;
 
     public MigratorService() throws SQLException {
-        this.connection = DriverManager.getConnection("jdbc:mysql://localhost:3306", "root", "developer345");
+        this.connection = DriverManager.getConnection("jdbc:mysql://localhost:3306", "retailUsr", "lNando.0622");
         this.databaseMetaData = connection.getMetaData();
         this.databaseStatement = connection.createStatement();
     }
@@ -120,6 +120,19 @@ public class MigratorService {
         }
     }
 
+    public List<String> getListColumns(String db, String tableName) {
+        List<String> Columns = new ArrayList<>();
+        try (ResultSet columns = databaseMetaData.getColumns(db, null, tableName, null)) {
+            while (columns.next()) {
+                String columnName = columns.getString("COLUMN_NAME");
+                Columns.add(columnName);
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        }
+        return Columns;
+    }
+    
     public List<String> getListColumns(String tableName) {
         List<String> Columns = new ArrayList<>();
         try (ResultSet columns = databaseMetaData.getColumns(database_name, null, tableName, null)) {
@@ -138,18 +151,18 @@ public class MigratorService {
         Properties pojoFather;
         List<Properties> childrens = new ArrayList<>();
         List<Properties> listFathers = new ArrayList<>();
-        String fromTable, fromIdKey, toTable, foreignKey;
+        String fromTable, fromIdKey, toTable, foreignKey, db;
 
         // get params
         fromTable = tableParams.getFromTable();
         fromIdKey = tableParams.getFromIdKey();
         toTable = tableParams.getToTable();
         foreignKey = tableParams.getForeignKey();
+        db = tableParams.getDb();
+        int fromColumnsCount = getListColumns(db,fromTable).size();
 
-        int fromColumnsCount = getListColumns(fromTable).size();
-
-        ResultSet rs = databaseStatement.executeQuery("SELECT " + /*+ fromColumnsCount +", " + fromTable + ".*, " + toTable + */"* FROM " + database_name + "." + fromTable
-                + " INNER JOIN " + database_name + "." + toTable + " ON " + fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey + " ORDER BY " + fromIdKey + ";");
+        ResultSet rs = databaseStatement.executeQuery("SELECT " + /*+ fromColumnsCount +", " + fromTable + ".*, " + toTable + */"* FROM " + db + "." + fromTable
+                + " INNER JOIN " + db + "." + toTable + " ON " + fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey + " ORDER BY " + fromIdKey + ";");
         //System.out.println(rs);
         ResultSetMetaData metadata = rs.getMetaData();
         int columnCount = metadata.getColumnCount();
