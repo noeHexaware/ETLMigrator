@@ -3,11 +3,8 @@ package com.etl.migrator.api;
 import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.service.MigratorService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.etl.migrator.queueConfig.MessageProducer;
 import java.sql.SQLException;
 import java.time.LocalDate;
 
@@ -15,9 +12,6 @@ import java.time.LocalDate;
 @RequestMapping("api/v1")
 @RequiredArgsConstructor
 public class MigratorController {
-
-    @Autowired
-    private ApplicationContext context;
 
     // @Autowired
     private final MigratorService migratorService;

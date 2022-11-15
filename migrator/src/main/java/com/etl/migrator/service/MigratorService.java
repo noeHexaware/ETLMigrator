@@ -186,16 +186,35 @@ public class MigratorService {
                 pojoSon.put(metadata.getColumnName(i), rs.getString(i));
             }
             childrens.add(pojoSon);
-            pojoFather.put("children", pojoSon);
+            String pojoSonJson = "{";
+            pojoSonJson += extractValues(pojoSon);
+            pojoSonJson = pojoSonJson.substring(0,pojoSonJson.length()-1) + "}";
+            //pojoFather.put("children", pojoSonJson);
             //System.out.println("Row: " + pojoFather.toString());
             pojoFather.put("collection", db);
-            pojoFather.put("childrenName", fromTable);
+            pojoFather.put("childrenName", toTable);
+            pojoFather.put("masterPk", fromIdKey);
+            
+            String doc = "{";
+            doc+= extractValues(pojoFather);
+            doc+= "\"children\":" + pojoSonJson +",";
+            doc = doc.substring(0,doc.length()-1) + "}";
+            
+            
             listFathers.add(pojoFather);
             
-            producer.sendMessage(pojoFather.toString());
+            producer.sendMessage(doc);
             //System.out.println("Record :: " + pojoFather.toString());
         }
         //System.out.println("List Fathers:" + listFathers);
         return listFathers.toString();
     }
+
+	private String extractValues(Properties pojoFather) {
+		StringBuilder cad = new StringBuilder("");
+		pojoFather.forEach((key, val) -> {
+        	cad.append("\"" + key + "\":\"" + val + "\",");
+        });
+		return cad.toString();
+	}
 }
