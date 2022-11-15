@@ -1,6 +1,10 @@
 package com.etl.migrator.service;
 
 import com.etl.migrator.dto.TableDTO;
+import com.etl.migrator.queueConfig.MessageProducer;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Service;
 
 import java.sql.*;
@@ -12,6 +16,9 @@ public class MigratorService {
     private DatabaseMetaData databaseMetaData;
     private String database_name = "migrator";
     private Statement databaseStatement;
+    
+    @Autowired
+    private ApplicationContext context;
 
     public MigratorService() throws SQLException {
         this.connection = DriverManager.getConnection("jdbc:mysql://localhost:3306", "retailUsr", "lNando.0622");
@@ -147,7 +154,7 @@ public class MigratorService {
     }
 
     public String makeCollection(TableDTO tableParams) throws SQLException {
-
+    	MessageProducer producer = context.getBean(MessageProducer.class);
         Properties pojoFather;
         List<Properties> childrens = new ArrayList<>();
         List<Properties> listFathers = new ArrayList<>();
@@ -180,10 +187,15 @@ public class MigratorService {
             }
             childrens.add(pojoSon);
             pojoFather.put("children", pojoSon);
-            System.out.println("Row: " + pojoFather.toString());
+            //System.out.println("Row: " + pojoFather.toString());
+            pojoFather.put("collection", db);
+            pojoFather.put("childrenName", fromTable);
             listFathers.add(pojoFather);
+            
+            producer.sendMessage(pojoFather.toString());
+            //System.out.println("Record :: " + pojoFather.toString());
         }
-        System.out.println("List Fathers:" + listFathers);
+        //System.out.println("List Fathers:" + listFathers);
         return listFathers.toString();
     }
 }

@@ -51,10 +51,10 @@ public class MigratorController {
         // MigratorService migratorService = new MigratorService();
         String data = migratorService.makeCollection(tableParams);
 
-        MessageProducer producer = context.getBean(MessageProducer.class);
+        //MessageProducer producer = context.getBean(MessageProducer.class);
         //JSONParser parser = new JSONParser();
         //JSONObject json = (JSONObject) parser.parse(data);
-        producer.sendMessage(data);
+        //producer.sendMessage(data);
 
         return ResponseEntity.ok(data);
     }

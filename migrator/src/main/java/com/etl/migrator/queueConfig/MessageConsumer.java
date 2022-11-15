@@ -1,23 +1,16 @@
 package com.etl.migrator.queueConfig;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.TopicPartition;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.util.concurrent.ListenableFuture;
-import org.springframework.util.concurrent.ListenableFutureCallback;
+
+import com.etl.migrator.transformer.TransformerLogic;
+
+import lombok.SneakyThrows;
 
 public class MessageConsumer {
 
@@ -28,11 +21,35 @@ public class MessageConsumer {
     private CountDownLatch filterLatch = new CountDownLatch(2);
 
     // private CountDownLatch testObjectLatch = new CountDownLatch(1);
+    
+    /*
+     * @KafkaListener(topics = "com.faza.example.kafka.topic")
+    public void kafkaMessageListener(ConsumerRecord<String, String> record) {
+        log.info("Kafka message listener got a new record: " + record);
+        CompletableFuture.runAsync(this::sleep)
+                .join();
+        log.info("Kafka message listener done processing record: " + record);
+    }    @SneakyThrows
+    private void sleep() {
+        Thread.sleep(5000);
+    }
+}
+     * 
+     * */
 
     @KafkaListener(topics = "${message.topic.name}", groupId = "group1", containerFactory = "group1KafkaListenerContainerFactory")
     public void listenGroup1(String message) {
-        System.out.println("Received Message in group 'group1': " + message);
-        latch.countDown();
+        System.out.println("Received Message from group 'group1': " + message);
+        //latch.countDown();
+        /*CompletableFuture.thenRunAsync(this::sleep)
+        .join();*/
+        TransformerLogic trans = new TransformerLogic();
+        trans.transformData(message);
+    }
+    
+    @SneakyThrows
+    private void sleep() {
+        Thread.sleep(5000);
     }
 
     @KafkaListener(topics = "${message.topic.name}", groupId = "group2", containerFactory = "group2KafkaListenerContainerFactory")
