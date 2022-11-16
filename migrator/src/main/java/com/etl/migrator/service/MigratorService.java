@@ -4,24 +4,37 @@ import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.queueConfig.MessageProducer;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 
 import java.sql.*;
 import java.util.*;
 
 @Service
+@Configuration
 public class MigratorService {
+    private String datasourceURL;
+    private String datasourceUserName;
+    public String datasourcePassword;
     private Connection connection;
     private DatabaseMetaData databaseMetaData;
-    private String database_name = "migrator";
+    private String database_name;
     private Statement databaseStatement;
-    
     @Autowired
     private ApplicationContext context;
 
-    public MigratorService() throws SQLException {
-        this.connection = DriverManager.getConnection("jdbc:mysql://localhost:3306", "retailUsr", "lNando.0622");
+    @Autowired
+    public MigratorService(@Value("${spring.datasource.url:default}") String datasourceURL,
+                           @Value("${spring.datasource.username:default}") String datasourceUserName,
+                           @Value("${spring.datasource.password:default}") String datasourcePassword
+                           ) throws SQLException
+    {
+        this.datasourceURL = datasourceURL;
+        this.datasourceUserName = datasourceUserName;
+        this.datasourcePassword = datasourcePassword;
+        this.connection = DriverManager.getConnection(datasourceURL, datasourceUserName, datasourcePassword);
         this.databaseMetaData = connection.getMetaData();
         this.databaseStatement = connection.createStatement();
     }
