@@ -59,23 +59,23 @@ public class MessageConsumer {
         latch.countDown();
     }
 
-    @KafkaListener(topics = "${message.topic.name}", containerFactory = "headersKafkaListenerContainerFactory")
-    public void listenWithHeaders(@Payload String message, @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition) {
-        System.out.println("Received Message: " + message + " from partition: " + partition);
-        latch.countDown();
-    }
+    // @KafkaListener(topics = "${message.topic.name}", containerFactory = "headersKafkaListenerContainerFactory")
+    // public void listenWithHeaders(@Payload String message, @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition) {
+    //     System.out.println("Received Message: " + message + " from partition: " + partition);
+    //     latch.countDown();
+    // }
 
-    @KafkaListener(topicPartitions = @TopicPartition(topic = "${partitioned.topic.name}", partitions = { "0", "3" }), containerFactory = "partitionsKafkaListenerContainerFactory")
-    public void listenToPartition(@Payload String message, @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition) {
-        System.out.println("Received Message: " + message + " from partition: " + partition);
-        this.partitionLatch.countDown();
-    }
+    // @KafkaListener(topicPartitions = @TopicPartition(topic = "${partitioned.topic.name}", partitions = { "0", "3" }), containerFactory = "partitionsKafkaListenerContainerFactory")
+    // public void listenToPartition(@Payload String message, @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition) {
+    //     System.out.println("Received Message: " + message + " from partition: " + partition);
+    //     this.partitionLatch.countDown();
+    // }
 
-    @KafkaListener(topics = "${filtered.topic.name}", containerFactory = "filterKafkaListenerContainerFactory")
-    public void listenWithFilter(String message) {
-        System.out.println("Received Message in filtered listener: " + message);
-        this.filterLatch.countDown();
-    }
+    // @KafkaListener(topics = "${filtered.topic.name}", containerFactory = "filterKafkaListenerContainerFactory")
+    // public void listenWithFilter(String message) {
+    //     System.out.println("Received Message in filtered listener: " + message);
+    //     this.filterLatch.countDown();
+    // }
 
     // @KafkaListener(topics = "${testObject.topic.name}", containerFactory = "testObjectKafkaListenerContainerFactory")
     // public void testObjectListener(TestObject testObject) {

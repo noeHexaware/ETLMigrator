@@ -68,13 +68,13 @@ public class MessageProducer {
         });
     }*/
 
-    public void sendMessageToPartition(String message, int partition) {
-        kafkaTemplate.send(partitionedTopicName, partition, null, message);
-    }
+    // public void sendMessageToPartition(String message, int partition) {
+    //     kafkaTemplate.send(partitionedTopicName, partition, null, message);
+    // }
 
-    public void sendMessageToFiltered(String message) {
-        kafkaTemplate.send(filteredTopicName, message);
-    }
+    // public void sendMessageToFiltered(String message) {
+    //     kafkaTemplate.send(filteredTopicName, message);
+    // }
 
     // public void sendGreetingMessage(TestObject testObject) {
     //     testObjectKafkaTemplate.send(testObjectTopicName, testObject);

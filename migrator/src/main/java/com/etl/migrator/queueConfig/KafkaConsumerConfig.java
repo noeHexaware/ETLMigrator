@@ -47,24 +47,24 @@ public class KafkaConsumerConfig {
         return kafkaListenerContainerFactory("group2");
     }
 
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String> headersKafkaListenerContainerFactory() {
-        return kafkaListenerContainerFactory("headers");
-    }
+    // @Bean
+    // public ConcurrentKafkaListenerContainerFactory<String, String> headersKafkaListenerContainerFactory() {
+    //     return kafkaListenerContainerFactory("headers");
+    // }
 
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String> partitionsKafkaListenerContainerFactory() {
-        return kafkaListenerContainerFactory("partitions");
-    }
+    // @Bean
+    // public ConcurrentKafkaListenerContainerFactory<String, String> partitionsKafkaListenerContainerFactory() {
+    //     return kafkaListenerContainerFactory("partitions");
+    // }
 
 
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String> filterKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, String> factory = kafkaListenerContainerFactory("filter");
-        factory.setRecordFilterStrategy(record -> record.value()
-            .contains("World"));
-        return factory;
-    }
+    // @Bean
+    // public ConcurrentKafkaListenerContainerFactory<String, String> filterKafkaListenerContainerFactory() {
+    //     ConcurrentKafkaListenerContainerFactory<String, String> factory = kafkaListenerContainerFactory("filter");
+    //     factory.setRecordFilterStrategy(record -> record.value()
+    //         .contains("World"));
+    //     return factory;
+    // }
 
     // public ConsumerFactory<String, TestObject> greetingConsumerFactory() {
     //     Map<String, Object> props = new HashMap<>();
