@@ -1,6 +1,7 @@
 package com.etl.migrator.service;
 
 import com.etl.migrator.dto.TableDTO;
+import com.etl.migrator.queueConfig.MessageConsumer;
 import com.etl.migrator.queueConfig.MessageProducer;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class MigratorService {
@@ -155,8 +157,11 @@ public class MigratorService {
 
     public String makeCollection(TableDTO tableParams) throws SQLException {
     	MessageProducer producer = context.getBean(MessageProducer.class);
-        Properties pojoFather;
-        List<Properties> childrens = new ArrayList<>();
+    	MessageConsumer listener = context.getBean(MessageConsumer.class);
+        
+        //Sending a Hello World message to topic 'topic1' - defined in app properties. 
+    	Properties pojoFather;
+        //List<Properties> childrens = new ArrayList<>();
         List<Properties> listFathers = new ArrayList<>();
         String fromTable, fromIdKey, toTable, foreignKey, db;
 
@@ -185,27 +190,31 @@ public class MigratorService {
             for (int i = fromColumnsCount + 1; i <= columnCount; i++) {
                 pojoSon.put(metadata.getColumnName(i), rs.getString(i));
             }
-            childrens.add(pojoSon);
+            //childrens.add(pojoSon);
             String pojoSonJson = "{";
             pojoSonJson += extractValues(pojoSon);
             pojoSonJson = pojoSonJson.substring(0,pojoSonJson.length()-1) + "}";
-            //pojoFather.put("children", pojoSonJson);
-            //System.out.println("Row: " + pojoFather.toString());
+            
+            //fixed tags to manage the connection, collection and nested Doc
             pojoFather.put("collection", db);
             pojoFather.put("childrenName", toTable);
             pojoFather.put("masterPk", fromIdKey);
             
             String doc = "{";
-            doc+= extractValues(pojoFather);
-            doc+= "\"children\":" + pojoSonJson +",";
-            doc = doc.substring(0,doc.length()-1) + "}";
+            doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
+            doc+= "\"children\":" + pojoSonJson +" }";
             
-            
-            listFathers.add(pojoFather);
+            listFathers.add(pojoFather); //to sent the response to postman
             
             producer.sendMessage(doc);
-            //System.out.println("Record :: " + pojoFather.toString());
+            
         }
+        try {
+			listener.latch.await(10, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
         //System.out.println("List Fathers:" + listFathers);
         return listFathers.toString();
     }

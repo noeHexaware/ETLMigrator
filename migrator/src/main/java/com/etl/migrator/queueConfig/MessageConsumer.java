@@ -1,5 +1,6 @@
 package com.etl.migrator.queueConfig;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 
 import org.springframework.kafka.annotation.KafkaListener;
@@ -14,7 +15,7 @@ import lombok.SneakyThrows;
 
 public class MessageConsumer {
 
-    private CountDownLatch latch = new CountDownLatch(3);
+    public CountDownLatch latch = new CountDownLatch(3);
 
     private CountDownLatch partitionLatch = new CountDownLatch(2);
 
@@ -41,8 +42,8 @@ public class MessageConsumer {
     public void listenGroup1(String message) {
         System.out.println("Received Message from group 'group1': " + message);
         //latch.countDown();
-        /*CompletableFuture.thenRunAsync(this::sleep)
-        .join();*/
+        //CompletableFuture completableFuture = new CompletableFuture();
+		//completableFuture.join();
         TransformerLogic trans = new TransformerLogic();
         trans.transformData(message);
     }
