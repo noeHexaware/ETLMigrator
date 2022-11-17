@@ -6,24 +6,32 @@ import com.etl.migrator.queueConfig.MessageProducer;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+@Configuration
 @Service
 public class MigratorService {
     private Connection connection;
     private DatabaseMetaData databaseMetaData;
     private String database_name = "migrator";
     private Statement databaseStatement;
-    
+
     @Autowired
     private ApplicationContext context;
 
-    public MigratorService() throws SQLException {
-        this.connection = DriverManager.getConnection("jdbc:mysql://localhost:3306", "retailUsr", "lNando.0622");
+
+    @Autowired
+    public MigratorService(@Value("${spring.datasource.url:default}") String datasourceURL,
+                           @Value("${spring.datasource.username:default}") String datasourceUserName,
+                           @Value("${spring.datasource.password:default}") String datasourcePassword
+    ) throws SQLException {
+        this.connection = DriverManager.getConnection(datasourceURL,datasourceUserName,datasourcePassword);
         this.databaseMetaData = connection.getMetaData();
         this.databaseStatement = connection.createStatement();
     }
