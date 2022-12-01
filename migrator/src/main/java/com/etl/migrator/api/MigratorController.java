@@ -12,44 +12,22 @@ import java.time.LocalDate;
 @RequestMapping("api/v1")
 @RequiredArgsConstructor
 public class MigratorController {
-
-    // @Autowired
     private final MigratorService migratorService;
 
-
-    @GetMapping("hello")
+    @GetMapping("statusApi")
     public String hello(){
-        return "hello " + LocalDate.now();
+        return "API up, date: " + LocalDate.now();
     }
 
-    @GetMapping("process")
-    public ResponseEntity<Object> processMigration() throws SQLException{
-    	//MigratorService migratorService = new MigratorService();
-        return ResponseEntity.ok(migratorService.processMigration());
-    }
-
-    @GetMapping("getCollection")
-    public ResponseEntity<Object> processCollection() throws SQLException {
-    	//MigratorService migratorService = new MigratorService();
-        return ResponseEntity.ok(migratorService.getCollection("department","idDepartment", "employee","department"));
-    }
-
-//    @GetMapping("makeCollection")
-//    public ResponseEntity<Object> makeCollection() throws SQLException {
-//        MigratorService migratorService = new MigratorService();
-//        return ResponseEntity.ok(migratorService.makeCollection("department","idDepartment", "employee","department"));
-//    }
-
+    /**
+     * Send database and table parameters to proccess the Migration
+     * @param tableParams
+     * @return
+     * @throws SQLException
+     */
     @PostMapping("makeCollectionsParams")
     public  ResponseEntity<Object> makeCollectionParams(@RequestBody TableDTO tableParams) throws SQLException {
-        // MigratorService migratorService = new MigratorService();
         String data = migratorService.makeCollection(tableParams);
-
-        //MessageProducer producer = context.getBean(MessageProducer.class);
-        //JSONParser parser = new JSONParser();
-        //JSONObject json = (JSONObject) parser.parse(data);
-        //producer.sendMessage(data);
-
         return ResponseEntity.ok(data);
     }
 }

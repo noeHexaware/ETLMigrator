@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.etl.migrator.constants.Constants;
+import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.json.simple.JSONObject;
@@ -20,23 +22,27 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.result.InsertOneResult;
+import org.springframework.beans.factory.annotation.Value;
 
+@Slf4j
 public class TransformerLogic {
-	
-	
+
 	private ArrayList<String> fixedTags; //to remove the tags that contains fixed values that help us with the collection name an so on
-	
+
 	public TransformerLogic() {
-		fixedTags = new ArrayList<String>();
+		fixedTags = new ArrayList<>();
 		fixedTags.add("collection");
 		fixedTags.add("childrenName");
 		fixedTags.add("masterPk");
 		fixedTags.add("children");
 	}
-	
+
+	/**
+	 * Send each row to MongoDB
+	 * @param row
+	 */
 	public void transformData (String row) {
-		
-		ConnectionString connectionString = new ConnectionString("mongodb+srv://testMongo:8CyWCCkRaK7QyB9B@learningreact.6j0uwgk.mongodb.net/?retryWrites=true&w=majority");
+		ConnectionString connectionString = new ConnectionString(Constants.DATASOURCE_MONGODB);
 		MongoClientSettings settings = MongoClientSettings.builder()
 		        .applyConnectionString(connectionString)
 		        .serverApi(ServerApi.builder()
@@ -72,7 +78,7 @@ public class TransformerLogic {
 	        if(resultUpdate == null) { //if there is no row into mongodb it will be created
 	        	Document doc = new Document();
 		        
-		        json.forEach((key, value) ->{
+		        json.forEach((key, value) -> {
 		        	if(!fixedTags.contains(key)) {
 		        		doc.append(key.toString(), value);
 		        	}
@@ -88,14 +94,12 @@ public class TransformerLogic {
 		        System.out.println("Result ::: " + result.toString());//just an acknowledge that the row was inserted
 				
 	        }
-	        
-	        
 		} catch (MongoException me) {
-            System.err.println("Unable to insert due to an error: " + me);
+            log.error("Unable to insert due to an error: " + me);
         } catch (ParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			log.error(e.getMessage());
 		}
-		
 	}
 }

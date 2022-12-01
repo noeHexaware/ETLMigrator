@@ -1,0 +1,4 @@
+com\etl\migrator\queueConfig\MessageProducerTest.class
+com\etl\migrator\MigratorApplicationTests.class
+com\etl\migrator\service\MigratorServiceTest.class
+com\etl\migrator\transformer\TransformerLogicTest.class
