@@ -1,0 +1,12 @@
+com\etl\migrator\queueConfig\MessageProducer.class
+com\etl\migrator\models\Database.class
+com\etl\migrator\dto\TableDTO.class
+com\etl\migrator\queueConfig\MessageConsumer.class
+com\etl\migrator\queueConfig\KafkaProducerConfig.class
+com\etl\migrator\exception\GlobalExceptionHandler.class
+com\etl\migrator\api\MigratorController.class
+com\etl\migrator\queueConfig\MessageProducer$1.class
+com\etl\migrator\service\MigratorService.class
+com\etl\migrator\queueConfig\KafkaConsumerConfig.class
+com\etl\migrator\MigratorApplication.class
+com\etl\migrator\transformer\TransformerLogic.class

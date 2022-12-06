@@ -1,0 +1,50 @@
+
+g
+java:S1192D"LDefine a constant instead of duplicating this literal "COLUMN_NAME" 3 times.(¸ı±úÿÿÿÿ
+k	java:S117A"QRename this local variable to match the regular expression '^[a-z][a-zA-Z0-9]*$'.(¬û“˜şÿÿÿÿ
+k	java:S117|"QRename this local variable to match the regular expression '^[a-z][a-zA-Z0-9]*$'.(ô•Õ°øÿÿÿÿ
+l	java:S117”"QRename this local variable to match the regular expression '^[a-z][a-zA-Z0-9]*$'.(¬û“˜şÿÿÿÿ
+l	java:S117¡"QRename this local variable to match the regular expression '^[a-z][a-zA-Z0-9]*$'.(¬û“˜şÿÿÿÿ
+P
+java:S1143q"5Remove this return statement from this finally block.(‡ÚÌˆûÿÿÿÿ
+X
+java:S4973ˆ"<Strings and Boxed types should be compared using "equals()".(Ïü³ÿÿÿÿÿ
+m	java:S116"XRename this field "database_name" to match the regular expression '^[a-z][a-zA-Z0-9]*$'.(‘ø½ß
+N	java:S1063"9Replace this use of System.out or System.err by a logger.(äìÎÆ
+S	java:S1066"9Replace this use of System.out or System.err by a logger.(•”€Ñùÿÿÿÿ
+S	java:S1069"9Replace this use of System.out or System.err by a logger.(âê€öøÿÿÿÿ
+N	java:S106;"9Replace this use of System.out or System.err by a logger.(É—¹ø
+V	java:S125F"<This block of commented-out lines of code should be removed.(Ÿ™Õ¨şÿÿÿÿ
+S	java:S106L"9Replace this use of System.out or System.err by a logger.(©şêÜúÿÿÿÿ
+N	java:S106Q"9Replace this use of System.out or System.err by a logger.(«½ÏŠ
+Q
+java:S1854Z"<Remove this useless assignment to local variable "rowCount".(³ë±m
+B
+java:S1481Z"-Remove this unused "rowCount" local variable.(³ë±m
+@
+java:S1481["*Remove this unused "pivot" local variable.(¸ô¨
+N	java:S106^"9Replace this use of System.out or System.err by a logger.(Šğš
+N	java:S106c"9Replace this use of System.out or System.err by a logger.(­‚€÷
+N	java:S106e"9Replace this use of System.out or System.err by a logger.(ÆĞùĞ
+N	java:S106g"9Replace this use of System.out or System.err by a logger.(§šÿÿ
+S	java:S106i"9Replace this use of System.out or System.err by a logger.(Ì§¹Âüÿÿÿÿ
+S	java:S106k"9Replace this use of System.out or System.err by a logger.(‹¾úúüÿÿÿÿ
+O	java:S106€"9Replace this use of System.out or System.err by a logger.(Šğš
+O	java:S106„"9Replace this use of System.out or System.err by a logger.(­‚€÷
+O	java:S106†"9Replace this use of System.out or System.err by a logger.(ÆĞùĞ
+O	java:S106‰"9Replace this use of System.out or System.err by a logger.(ùƒˆÊ
+T	java:S106Œ"9Replace this use of System.out or System.err by a logger.(‹¾úúüÿÿÿÿ
+O	java:S106"9Replace this use of System.out or System.err by a logger.(¨¹®œ
+T	java:S106›"9Replace this use of System.out or System.err by a logger.(©şêÜúÿÿÿÿ
+T	java:S106¨"9Replace this use of System.out or System.err by a logger.(©şêÜúÿÿÿÿ
+b
+java:S1659»"FDeclare "fromIdKey" and all following declarations on a separate line.(óÊÿ¦ÿÿÿÿÿ
+W	java:S125¹"<This block of commented-out lines of code should be removed.(°òä ıÿÿÿÿ
+u
+java:S2142ê"^Either re-interrupt this method or rethrow the "InterruptedException" that can be caught here.(ä ¹€
+P	java:S899é":Do something with the "boolean" value returned by "await".(ˆÒ—å
+N
+java:S1135ë"2Complete the task associated to this TODO comment.(ÕÌ®şÿÿÿÿ
+Q	java:S125î"<This block of commented-out lines of code should be removed.(¥Ûû=
+C
+java:S1602ù",Remove useless curly braces around statement( ß‰ş

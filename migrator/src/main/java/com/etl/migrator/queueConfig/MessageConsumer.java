@@ -21,22 +21,6 @@ public class MessageConsumer {
 
     private CountDownLatch filterLatch = new CountDownLatch(2);
 
-    // private CountDownLatch testObjectLatch = new CountDownLatch(1);
-    
-    /*
-     * @KafkaListener(topics = "com.faza.example.kafka.topic")
-    public void kafkaMessageListener(ConsumerRecord<String, String> record) {
-        log.info("Kafka message listener got a new record: " + record);
-        CompletableFuture.runAsync(this::sleep)
-                .join();
-        log.info("Kafka message listener done processing record: " + record);
-    }    @SneakyThrows
-    private void sleep() {
-        Thread.sleep(5000);
-    }
-}
-     * 
-     * */
 
     @KafkaListener(topics = "${message.topic.name}", groupId = "group1", containerFactory = "group1KafkaListenerContainerFactory")
     public void listenGroup1(String message) {
@@ -58,29 +42,4 @@ public class MessageConsumer {
         System.out.println("Received Message in group 'group2': " + message);
         latch.countDown();
     }
-
-    @KafkaListener(topics = "${message.topic.name}", containerFactory = "headersKafkaListenerContainerFactory")
-    public void listenWithHeaders(@Payload String message, @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition) {
-        System.out.println("Received Message: " + message + " from partition: " + partition);
-        latch.countDown();
-    }
-
-    @KafkaListener(topicPartitions = @TopicPartition(topic = "${partitioned.topic.name}", partitions = { "0", "3" }), containerFactory = "partitionsKafkaListenerContainerFactory")
-    public void listenToPartition(@Payload String message, @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition) {
-        System.out.println("Received Message: " + message + " from partition: " + partition);
-        this.partitionLatch.countDown();
-    }
-
-    @KafkaListener(topics = "${filtered.topic.name}", containerFactory = "filterKafkaListenerContainerFactory")
-    public void listenWithFilter(String message) {
-        System.out.println("Received Message in filtered listener: " + message);
-        this.filterLatch.countDown();
-    }
-
-    // @KafkaListener(topics = "${testObject.topic.name}", containerFactory = "testObjectKafkaListenerContainerFactory")
-    // public void testObjectListener(TestObject testObject) {
-    //     System.out.println("Received testObject message: " + testObject);
-    //     this.testObjectLatch.countDown();
-    // }
-
 }

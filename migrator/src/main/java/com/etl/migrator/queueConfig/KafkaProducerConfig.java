@@ -18,7 +18,6 @@ public class KafkaProducerConfig {
     @Value(value = "${kafka.bootstrapAddress}")
     private String bootstrapAddress;
 
-
     @Bean
     ProducerFactory<String, String> producerFactory() {
         Map<String, Object> configProps = new HashMap<>();
@@ -44,18 +43,4 @@ public class KafkaProducerConfig {
     MessageConsumer messageListener() {
         return new MessageConsumer();
     }
-
-    // @Bean
-    // public ProducerFactory<String, TestObject> testObjectProducerFactory() {
-    //     Map<String, Object> configProps = new HashMap<>();
-    //     configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapAddress);
-    //     configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-    //     configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-    //     return new DefaultKafkaProducerFactory<>(configProps);
-    // }
-
-    // @Bean
-    // public KafkaTemplate<String, TestObject> testObjectKafkaTemplate() {
-    //     return new KafkaTemplate<>(testObjectProducerFactory());
-    // }
 }
