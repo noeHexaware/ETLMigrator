@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.bson.Document;
 import org.bson.conversions.Bson;
+import org.bson.types.ObjectId;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -15,9 +16,11 @@ import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoException;
 import com.mongodb.ServerApi;
 import com.mongodb.ServerApiVersion;
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.result.InsertOneResult;
 
@@ -25,6 +28,8 @@ public class TransformerLogic {
 	
 	
 	private ArrayList<String> fixedTags; //to remove the tags that contains fixed values that help us with the collection name an so on
+	private ConnectionString connectionString;
+	private MongoClientSettings settings;
 	
 	public TransformerLogic() {
 		fixedTags = new ArrayList<String>();
@@ -32,28 +37,37 @@ public class TransformerLogic {
 		fixedTags.add("childrenName");
 		fixedTags.add("masterPk");
 		fixedTags.add("children");
-	}
-	
-	public void transformData (String row) {
+		fixedTags.add("masterTable");
+		fixedTags.add("migrationMode");
+		fixedTags.add("nestedPk");
 		
-		ConnectionString connectionString = new ConnectionString("mongodb+srv://testMongo:8CyWCCkRaK7QyB9B@learningreact.6j0uwgk.mongodb.net/?retryWrites=true&w=majority");
-		MongoClientSettings settings = MongoClientSettings.builder()
+		//connectionString = new ConnectionString("mongodb+srv://testMongo:8CyWCCkRaK7QyB9B@learningreact.6j0uwgk.mongodb.net/?retryWrites=true&w=majority");
+		connectionString = new ConnectionString("mongodb://root:example@localhost:27017");
+		settings = MongoClientSettings.builder()
 		        .applyConnectionString(connectionString)
 		        .serverApi(ServerApi.builder()
 		            .version(ServerApiVersion.V1)
 		            .build())
 		        .build();
+	}
+	
+	public void transformData (String row) {
 		
 		JSONParser parser = new JSONParser();
+		
 		try (MongoClient mongoClient = MongoClients.create(settings)){
 			
-			MongoDatabase database = mongoClient.getDatabase("Migrator");
-			JSONObject json = (JSONObject) parser.parse(row);			
+			JSONObject json = (JSONObject) parser.parse(row);
+			String collectionName = json.get("collection").toString();
 			
-	        MongoCollection<Document> collect = database.getCollection(json.get("collection").toString());
+			MongoDatabase database = mongoClient.getDatabase("Migrator");			
+	        
 	        
 	        String keyMas = json.get("masterPk").toString();
 	        String valueKeyMas = json.get(keyMas).toString();
+	        String migrationMode = json.get("migrationMode").toString();
+	        String childrenTable = json.get("childrenName").toString();
+	        String masterTable = json.get("masterTable").toString();
 	        
 	        //created nestedDoc because it will be added to the array if there is a department on the mongodb
 	        Document nestedDoc = new Document();
@@ -64,30 +78,66 @@ public class TransformerLogic {
 	        	}
 	        });
 	        
+	        Document doc = new Document();
+	        
+	        json.forEach((key, value) ->{
+	        	if(!fixedTags.contains(key)) {
+	        		doc.append(key.toString(), value);
+	        	}
+	        });
+	        
 	        Document query = new Document().append(keyMas, valueKeyMas);
 	        
-	        Bson updates = new Document("$push", new Document(json.get("childrenName").toString(),nestedDoc));
-	        Document resultUpdate = collect.findOneAndUpdate(query,updates);
-	        
-	        if(resultUpdate == null) { //if there is no row into mongodb it will be created
-	        	Document doc = new Document();
-		        
-		        json.forEach((key, value) ->{
-		        	if(!fixedTags.contains(key)) {
-		        		doc.append(key.toString(), value);
+	        //validation migration mode
+	        switch(migrationMode) {
+		        case "referenced":
+		        	MongoCollection<Document> collect1 = database.getCollection(masterTable);
+		        	MongoCollection<Document> collect2 = database.getCollection(childrenTable);
+		        	
+		        	FindIterable<Document> docsColl1 = collect1.find(query);
+		        	
+		        	ObjectId id = new ObjectId();
+		        	String foreignKey = json.get("nestedPk").toString();
+		        	
+		        	MongoCursor<Document> cursor = null;
+		        	cursor = docsColl1.cursor();
+		        	
+		        	if(!cursor.hasNext()) {
+		        		doc.append("_id", id);
+		        		InsertOneResult results = collect1.insertOne(doc);
+		        		System.out.println("Result ::: " + results.toString());//just an acknowledge that the row was inserted
+		        	} else {
+		        		Document doct = cursor.next();
+		        		id = doct.getObjectId("_id");
 		        	}
-		        });
-		        
-		        List<Document> docList = new ArrayList<>();
-		        docList.add(nestedDoc); //the child is added as an arrayList to make it an array and can insert a new employee there
+		        	
+		        	nestedDoc.put(foreignKey, id);
+		        	InsertOneResult results = collect2.insertOne(nestedDoc);
+		        	System.out.println("Result ::: " + results.toString());//just an acknowledge that the row was inserted
+		        	
+		        	break;
+		        default:
+		        	MongoCollection<Document> collect = database.getCollection(masterTable);
+		        	Bson updates = new Document("$push", new Document(json.get("childrenName").toString(),nestedDoc));
+		 	        Document resultUpdate = collect.findOneAndUpdate(query,updates);
+		 	        
+		 	        if(resultUpdate == null) { //if there is no row into mongodb it will be created
+		 		        
+		 		        List<Document> docList = new ArrayList<>();
+		 		        docList.add(nestedDoc); //the child is added as an arrayList to make it an array and can insert a new employee there
 
-		        doc.append(json.get("childrenName").toString(), docList);
-		        
-		        InsertOneResult result = collect.insertOne(doc);
-		        
-		        System.out.println("Result ::: " + result.toString());//just an acknowledge that the row was inserted
-				
+		 		        doc.append(childrenTable, docList);
+		 		        
+		 		        InsertOneResult result = collect.insertOne(doc);
+		 		        
+		 		        System.out.println("Result ::: " + result.toString());//just an acknowledge that the row was inserted
+		 				
+		 	        }
+		 	        else {
+		 	        	System.out.println("Result ::: " + resultUpdate.toString());
+		 	        }
 	        }
+	       
 	        
 	        
 		} catch (MongoException me) {

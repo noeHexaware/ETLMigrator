@@ -12,5 +12,6 @@ public class TableDTO {
     private String toTable;
     private String foreignKey;
     private String db;
+    private String migrationMode;
 
 }

@@ -163,17 +163,18 @@ public class MigratorService {
     	Properties pojoFather;
         //List<Properties> childrens = new ArrayList<>();
         List<Properties> listFathers = new ArrayList<>();
-        String fromTable, fromIdKey, toTable, foreignKey, db;
+        String fromTable, fromIdKey, toTable, foreignKey, db, migrationMode;
 
         // get params
         fromTable = tableParams.getFromTable();
         fromIdKey = tableParams.getFromIdKey();
         toTable = tableParams.getToTable();
         foreignKey = tableParams.getForeignKey();
+        migrationMode = tableParams.getMigrationMode();
         db = tableParams.getDb();
         int fromColumnsCount = getListColumns(db,fromTable).size();
 
-        ResultSet rs = databaseStatement.executeQuery("SELECT " + /*+ fromColumnsCount +", " + fromTable + ".*, " + toTable + */"* FROM " + db + "." + fromTable
+        ResultSet rs = databaseStatement.executeQuery("SELECT " + "* FROM " + db + "." + fromTable
                 + " INNER JOIN " + db + "." + toTable + " ON " + fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey + " ORDER BY " + fromIdKey + ";");
         //System.out.println(rs);
         ResultSetMetaData metadata = rs.getMetaData();
@@ -199,6 +200,9 @@ public class MigratorService {
             pojoFather.put("collection", db);
             pojoFather.put("childrenName", toTable);
             pojoFather.put("masterPk", fromIdKey);
+            pojoFather.put("migrationMode", migrationMode);
+            pojoFather.put("masterTable", fromTable);
+            pojoFather.put("nestedPk", foreignKey);
             
             String doc = "{";
             doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
