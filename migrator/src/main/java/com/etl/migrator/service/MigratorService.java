@@ -7,6 +7,7 @@ import com.etl.migrator.queueConfig.MessageProducer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,12 @@ public class MigratorService {
 
     //@Autowired
     private ApplicationContext context;
+    
+    @Value(value = "${message.topic.name}")
+    private String topicName;
+    
+    @Value(value = "${message.topicOneTable.name}")
+    private String topicNameOneTable;
 
     @Autowired
     public MigratorService(ApplicationContext context) throws SQLException {
@@ -115,7 +122,7 @@ public class MigratorService {
             listFathers.add(pojoFather);
 
             // send message to the producer
-            producer.sendMessage(doc);
+            producer.sendMessage(topicName, doc);
             
         }
         try {

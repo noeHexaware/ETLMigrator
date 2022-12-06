@@ -14,6 +14,9 @@ public class MessageProducer {
 
     @Value(value = "${message.topic.name}")
     private String topicName;
+    
+    @Value(value = "${message.topicOneTable.name}")
+    private String topicNameOneTable;
 
     @Value(value = "${partitioned.topic.name}")
     private String partitionedTopicName;
@@ -21,7 +24,7 @@ public class MessageProducer {
     @Value(value = "${filtered.topic.name}")
     private String filteredTopicName;
 
-    public void sendMessage(String message) {
+    public void sendMessage(String topicName, String message) {
 
         ListenableFuture<SendResult<String, String>> future = kafkaTemplate.send(topicName, message);
 

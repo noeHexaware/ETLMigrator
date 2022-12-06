@@ -32,6 +32,16 @@ public class MessageConsumer {
         trans.transformData(message);
     }
     
+    @KafkaListener(topics = "${message.topicOneTable.name}", groupId = "group1", containerFactory = "group1KafkaListenerContainerFactory")
+    public void listenGroup1OneTable(String message) {
+        System.out.println("Received Message from group 'group1': " + message);
+        //latch.countDown();
+        //CompletableFuture completableFuture = new CompletableFuture();
+		//completableFuture.join();
+        TransformerLogic trans = new TransformerLogic();
+        trans.transformData(message);
+    }
+    
     @SneakyThrows
     private void sleep() {
         Thread.sleep(5000);
