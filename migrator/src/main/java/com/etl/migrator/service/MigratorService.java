@@ -157,7 +157,6 @@ public class MigratorService {
         db = oneTableParams.getDb();
         int fromColumnsCount = getListColumns(db, fromTable).size();
 
-        //If it's just one table, we're going to put 0 at toTable value from tableParams and run this simple query
             String querySQL = "SELECT * FROM " + db + "." + fromTable + ";";
             ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
             ResultSetMetaData metadata = rs.getMetaData();
