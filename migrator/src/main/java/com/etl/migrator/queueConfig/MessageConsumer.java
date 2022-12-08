@@ -39,7 +39,7 @@ public class MessageConsumer {
         //CompletableFuture completableFuture = new CompletableFuture();
 		//completableFuture.join();
         TransformerLogic trans = new TransformerLogic();
-        trans.transformData(message);
+        trans.transformDataOne(message);
     }
     
     @SneakyThrows

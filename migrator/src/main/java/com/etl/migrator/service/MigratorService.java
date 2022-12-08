@@ -1,6 +1,7 @@
 package com.etl.migrator.service;
 
 import com.etl.migrator.constants.Constants;
+import com.etl.migrator.dto.OneTableDTO;
 import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.queueConfig.MessageConsumer;
 import com.etl.migrator.queueConfig.MessageProducer;
@@ -68,7 +69,7 @@ public class MigratorService {
         MessageProducer producer = context.getBean(MessageProducer.class);
         MessageConsumer listener = context.getBean(MessageConsumer.class);
 
-        //Sending a Hello World message to topic 'topic1' - defined in app properties. 
+        //Sending a Hello World message to topic 'topic1' - defined in app properties.
         Properties pojoFather;
         List<Properties> listFathers = new ArrayList<>();
 
@@ -116,14 +117,14 @@ public class MigratorService {
 
             String doc = "{";
             doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
-            doc+= "\"children\":" + pojoSonJson + " }";
+            doc+= "\"children\":" + pojoSonJson + "}";
 
             //to send the response to postman
             listFathers.add(pojoFather);
 
             // send message to the producer
             producer.sendMessage(topicName, doc);
-            
+
         }
         try {
             listener.latch.await(10, TimeUnit.SECONDS);
@@ -132,6 +133,66 @@ public class MigratorService {
             e.printStackTrace();
         }
         return listFathers.toString();
+    }
+
+    /**
+     * Make the collection, extract from tables in MySQL
+     * @param oneTableParams
+     * @return
+     * @throws SQLException
+     */
+
+    public String makeCollectionOneTable(OneTableDTO oneTableParams) throws SQLException{
+        String fromTable, db;
+
+        MessageProducer producer = context.getBean(MessageProducer.class);
+        MessageConsumer listener = context.getBean(MessageConsumer.class);
+
+        //Sending a Hello World message to topic 'topic1' - defined in app properties.
+        Properties pojoFather;
+        List<Properties> listFathers = new ArrayList<>();
+
+        // get params
+        fromTable = oneTableParams.getFromTable();
+        db = oneTableParams.getDb();
+        int fromColumnsCount = getListColumns(db, fromTable).size();
+
+        //If it's just one table, we're going to put 0 at toTable value from tableParams and run this simple query
+            String querySQL = "SELECT * FROM " + db + "." + fromTable + ";";
+            ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
+            ResultSetMetaData metadata = rs.getMetaData();
+
+            while (rs.next()) {
+                pojoFather = new Properties();
+
+                for (int i = 1; i <= fromColumnsCount; i++) {
+                    pojoFather.put(metadata.getColumnName(i), rs.getString(i));
+                }
+
+
+                //fixed tags to manage the connection, collection and nested Doc
+                pojoFather.put("collection", db);
+                pojoFather.put("masterTable", fromTable);
+
+                String doc = "{";
+                doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
+                doc+= "}";
+
+
+                //to send the response to postman
+                listFathers.add(pojoFather);
+
+                // send message to the producer
+                producer.sendMessage(topicNameOneTable, doc);
+            }
+        try {
+            listener.latch.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return listFathers.toString();
+
     }
 
     /**

@@ -149,4 +149,50 @@ public class TransformerLogic {
 		}
 		
 	}
+
+	public void transformDataOne(String row) {
+		ConnectionString connectionString = new ConnectionString(Constants.DATASOURCE_MONGODB);
+		MongoClientSettings settings = MongoClientSettings.builder()
+				.applyConnectionString(connectionString)
+				.serverApi(ServerApi.builder()
+						.version(ServerApiVersion.V1)
+						.build())
+				.build();
+
+		JSONParser parser = new JSONParser();
+
+		try (MongoClient mongoClient = MongoClients.create(settings)){
+
+			JSONObject json = (JSONObject) parser.parse(row);
+			String collectionName = json.get("collection").toString();
+
+			MongoDatabase database = mongoClient.getDatabase("Migrator");
+
+			String masterTable = json.get("masterTable").toString();
+
+			Document doc = new Document();
+
+			json.forEach((key, value) ->{
+				if(!fixedTags.contains(key)) {
+					doc.append(key.toString(), value);
+				}
+			});
+
+			MongoCollection<Document> collect1 = database.getCollection(masterTable);
+			InsertOneResult result = collect1.insertOne(doc);
+			System.out.println("Result ::: " + result.toString());
+
+
+
+		} catch (MongoException me) {
+			log.error("Unable to insert due to an error: " + me);
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			log.error(e.getMessage());
+		}
+
+
+
+	}
 }
