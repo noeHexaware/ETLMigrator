@@ -3,12 +3,15 @@ package com.etl.migrator.transformer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.etl.migrator.constants.Constants;
+import com.mongodb.client.result.InsertManyResult;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -32,6 +35,9 @@ public class TransformerLogic {
 
 	private ArrayList<String> fixedTags; //to remove the tags that contains fixed values that help us with the collection name an so on
 
+	private ConnectionString connectionString;
+	private MongoClientSettings settings;
+
 	public TransformerLogic() {
 		fixedTags = new ArrayList<String>();
 		fixedTags.add("collection");
@@ -41,6 +47,14 @@ public class TransformerLogic {
 		fixedTags.add("masterTable");
 		fixedTags.add("migrationMode");
 		fixedTags.add("nestedPk");
+
+		connectionString = new ConnectionString(Constants.DATASOURCE_MONGODB);
+		settings = MongoClientSettings.builder()
+				.applyConnectionString(connectionString)
+				.serverApi(ServerApi.builder()
+						.version(ServerApiVersion.V1)
+						.build())
+				.build();
 	}
 
 	/**
@@ -48,14 +62,6 @@ public class TransformerLogic {
 	 * @param row
 	 */
 	public void transformData (String row) {
-		ConnectionString connectionString = new ConnectionString(Constants.DATASOURCE_MONGODB);
-		MongoClientSettings settings = MongoClientSettings.builder()
-		        .applyConnectionString(connectionString)
-		        .serverApi(ServerApi.builder()
-		            .version(ServerApiVersion.V1)
-		            .build())
-		        .build();
-		
 		JSONParser parser = new JSONParser();
 
 		try (MongoClient mongoClient = MongoClients.create(settings)){
@@ -151,14 +157,6 @@ public class TransformerLogic {
 	}
 
 	public void transformDataOne(String row) {
-		ConnectionString connectionString = new ConnectionString(Constants.DATASOURCE_MONGODB);
-		MongoClientSettings settings = MongoClientSettings.builder()
-				.applyConnectionString(connectionString)
-				.serverApi(ServerApi.builder()
-						.version(ServerApiVersion.V1)
-						.build())
-				.build();
-
 		JSONParser parser = new JSONParser();
 
 		try (MongoClient mongoClient = MongoClients.create(settings)){
@@ -181,18 +179,45 @@ public class TransformerLogic {
 			MongoCollection<Document> collect1 = database.getCollection(masterTable);
 			InsertOneResult result = collect1.insertOne(doc);
 			System.out.println("Result ::: " + result.toString());
-
-
-
 		} catch (MongoException me) {
 			log.error("Unable to insert due to an error: " + me);
 		} catch (ParseException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 			log.error(e.getMessage());
 		}
+	}
 
+	/**
+	 * Migration - many tables
+	 * @param data
+	 */
+	public void transformDataManyTables(String data){
+		JSONParser parser = new JSONParser();
 
+		try(MongoClient mongoClient = MongoClients.create(settings)){
+			JSONObject json = (JSONObject) parser.parse(data);
+			Set<String> keys = json.keySet();
+			MongoDatabase database = mongoClient.getDatabase("Migrator"); // create database
 
+			for (String keyItem : keys) {
+				List<Document> listDocuments = new ArrayList<>();
+				JSONArray jsonArray = (JSONArray)json.get(keyItem);
+
+				jsonArray.forEach((value) ->{
+					ObjectId id = new ObjectId();
+					Document document = Document.parse((String) value);
+					document.append("_id", id);
+					listDocuments.add(document);
+				});
+
+				MongoCollection<Document> collection = database.getCollection(keyItem);
+
+				InsertManyResult results = collection.insertMany(listDocuments);
+				log.info("Inserted documents: " + results.getInsertedIds());
+			}
+		} catch (ParseException e) {
+			log.error(e.getMessage() + e.getCause());
+		}catch (MongoException e) {
+			log.error("Unable to insert due to an error: " + e);
+		}
 	}
 }

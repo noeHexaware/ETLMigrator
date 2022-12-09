@@ -3,10 +3,12 @@ package com.etl.migrator.service;
 import com.etl.migrator.constants.Constants;
 import com.etl.migrator.dto.OneTableDTO;
 import com.etl.migrator.dto.TableDTO;
+import com.etl.migrator.dto.CollectionDTO;
 import com.etl.migrator.queueConfig.MessageConsumer;
 import com.etl.migrator.queueConfig.MessageProducer;
 
 import lombok.extern.slf4j.Slf4j;
+import org.json.simple.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Service;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
+import static java.util.Objects.nonNull;
 
 @Configuration
 @Service
@@ -31,6 +35,9 @@ public class MigratorService {
     
     @Value(value = "${message.topicOneTable.name}")
     private String topicNameOneTable;
+
+    @Value(value = "${message.topicManyTables.name}")
+    private String topicManyTables;
 
     @Autowired
     public MigratorService(ApplicationContext context) throws SQLException {
@@ -192,6 +199,91 @@ public class MigratorService {
         }
         return listFathers.toString();
 
+    }
+
+    /**
+     * Select type of migration
+     * @param collectionDTO
+     * @return
+     */
+    public String processMigrationTables(CollectionDTO collectionDTO) {
+        StringBuilder result = new StringBuilder();
+        if(nonNull(collectionDTO.getTables())){
+            result.append(processWithoutRelation(collectionDTO));
+        }
+        if(nonNull(collectionDTO.getRelational())){
+            result.append(",").append(processRelationManyTables(collectionDTO));
+        }
+        return result.toString();
+    }
+
+    /**
+     * Process migration - tables without relation
+     * @param collectionDTO
+     * @return
+     */
+    private String processWithoutRelation(CollectionDTO collectionDTO) {
+        MessageProducer producer = context.getBean(MessageProducer.class);
+        String database = collectionDTO.getDatabase();
+        StringBuilder result = new StringBuilder();
+
+        collectionDTO.getTables().forEach(
+                (table) -> {
+                    log.info("Fetching data from TABLE :: " + table);
+                    LinkedHashMap<String, Object> mapValues = new LinkedHashMap<>();
+                    List<String> documents = new ArrayList<>();
+                    String querySQL = "SELECT * FROM " + database + "." + table;
+                    int fromColumnsCount = getListColumns(database, table).size();
+
+                    try {
+                        ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
+                        ResultSetMetaData metadata = rs.getMetaData();
+                        Properties pojoFather = new Properties();
+
+
+                        while(rs.next()){
+                            for (int i = 1; i <= fromColumnsCount; i++) {
+                                pojoFather.put(
+                                        nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                                        nonNull(rs.getString(i)) ? rs.getString(i) : "");
+                            }
+                            String doc = "{" + extractValues(pojoFather)  + "}";
+                            documents.add(doc);
+                        }
+                        mapValues.put(table, documents);
+
+                    } catch (Exception e) {
+                        log.error("Error fetching data from Database :: " + e.getMessage() + e.getCause());
+                    }
+                    if(mapValues.size() > 0){
+                        JSONObject json = new JSONObject(mapValues);
+                        log.info("Sending data to Producer ...");
+                        result.append(mapValues);
+                        producer.sendMessage(topicManyTables, json.toString());
+                    }
+                });
+        return result.toString().replace("\"", "").replace("\\","");
+    }
+
+    /**
+     * Process relation between tables
+     * @param collectionDTO
+     * @return
+     */
+    private String processRelationManyTables(CollectionDTO collectionDTO) {
+        StringBuilder result = new StringBuilder();
+        collectionDTO.getRelational().forEach(
+                (item) -> {
+                    item.setMigrationMode(nonNull(item.getMigrationMode()) ? item.getMigrationMode() : "referenced");
+                    item.setDb(collectionDTO.getDatabase());
+                    try {
+                        result.append(makeCollection(item));
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        );
+        return result.toString();
     }
 
     /**

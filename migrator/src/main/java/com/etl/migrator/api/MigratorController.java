@@ -2,6 +2,7 @@ package com.etl.migrator.api;
 
 import com.etl.migrator.dto.OneTableDTO;
 import com.etl.migrator.dto.TableDTO;
+import com.etl.migrator.dto.CollectionDTO;
 import com.etl.migrator.service.MigratorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +42,18 @@ public class MigratorController {
     @PostMapping("makeCollectionsParamsOne")
     public  ResponseEntity<Object> makeCollectionParamsOne(@RequestBody OneTableDTO oneTableParams) throws SQLException {
         String data = migratorService.makeCollectionOneTable(oneTableParams);
+        return ResponseEntity.ok(data);
+    }
+
+    /**
+     * Process Migration 3 or more tables
+     * @param collectionDTO
+     * @return
+     * @throws SQLException
+     */
+    @PostMapping("processMigration")
+    public ResponseEntity<Object> processMigrationTables(@RequestBody CollectionDTO collectionDTO) throws SQLException {
+        String data = migratorService.processMigrationTables(collectionDTO);
         return ResponseEntity.ok(data);
     }
 }
