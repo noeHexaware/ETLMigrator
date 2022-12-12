@@ -1,11 +1,9 @@
 package com.etl.migrator.transformer;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import com.etl.migrator.constants.Constants;
+import com.fasterxml.jackson.databind.JsonSerializer;
 import com.mongodb.client.result.InsertManyResult;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
@@ -186,38 +184,148 @@ public class TransformerLogic {
 		}
 	}
 
-	/**
-	 * Migration - many tables
-	 * @param data
-	 */
-	public void transformDataManyTables(String data){
+
+	public void transformDataManyTables (String row) {
 		JSONParser parser = new JSONParser();
 
-		try(MongoClient mongoClient = MongoClients.create(settings)){
-			JSONObject json = (JSONObject) parser.parse(data);
-			Set<String> keys = json.keySet();
+		try (MongoClient mongoClient = MongoClients.create(settings)){
+
+			JSONObject json = (JSONObject) parser.parse(row);
+			MongoDatabase database = mongoClient.getDatabase("Migrator");
+
+			String masterTable = json.get("table").toString();
+			String children1 = json.get("children1").toString();
+			String children2 = json.get("children2").toString();
+
+			//created nestedDoc because it will be added to the array if there is a department on the mongodb
+			Document nestedDoc = new Document();
+
+			((Map<String, Object>) json.get(children1)).forEach((key, value) ->{
+				if(!fixedTags.contains(key)) {
+					nestedDoc.append(key.toString(), value);
+				}
+			});
+
+			Document nestedDoc2 = new Document();
+			((Map<String, Object>) json.get(children2)).forEach((key, value) ->{
+				if(!fixedTags.contains(key)) {
+					nestedDoc2.append(key.toString(), value);
+				}
+			});
+
+			// Validar si existe el registro
+			Document doc = new Document();
+
+			MongoCollection<Document> collect = database.getCollection(masterTable);
+			List<Document> docList = new ArrayList<>();
+			List<Document> docList2 = new ArrayList<>();
+			docList.add(nestedDoc);
+			docList2.add(nestedDoc2);
+			doc.append(children1, docList);
+			doc.append(children2, docList2);
+
+			InsertOneResult result = collect.insertOne(doc);
+			System.out.println("Result ::: " + result);
+
+		} catch (MongoException me) {
+			log.error("Unable to insert due to an error: " + me);
+		} catch (ParseException e) {
+			log.error(e.getMessage());
+		}
+
+	}
+
+	/**Inserta un array de objetos **/
+//	public void transformDataManyTables(String data){
+//		JSONParser parser = new JSONParser();
+//
+//		try(MongoClient mongoClient = MongoClients.create(settings)){
+//			JSONObject json = (JSONObject) parser.parse(data);
+//			Set<String> keys = json.keySet();
+//			MongoDatabase database = mongoClient.getDatabase("Migrator"); // create database
+//
+//			for (String keyItem : keys) {
+//				List<Document> listDocuments = new ArrayList<>();
+//				JSONArray jsonArray = (JSONArray)json.get(keyItem);
+//
+//				jsonArray.forEach((value) ->{
+//					ObjectId id = new ObjectId();
+//					Document document = Document.parse((String) value);
+//					document.append("_id", id);
+//					listDocuments.add(document);
+//				});
+//
+//				MongoCollection<Document> collection = database.getCollection(keyItem);
+//
+//				InsertManyResult results = collection.insertMany(listDocuments);
+//				log.info("Inserted documents: " + results.getInsertedIds());
+//			}
+//		} catch (ParseException e) {
+//			log.error(e.getMessage() + e.getCause());
+//		}catch (MongoException e) {
+//			log.error("Unable to insert due to an error: " + e);
+//		}
+//	}
+
+//    public void transformManyToManyTables(String data)  {
+//
+//		try (MongoClient mongoClient = MongoClients.create(settings)){
+//			JSONParser parser = new JSONParser();
+//			JSONObject json = (JSONObject) parser.parse(data);
+//			log.info(json.toString());
+//			MongoDatabase database = mongoClient.getDatabase("Migrator"); // create database
+//
+//			json.forEach((key, value) -> {
+//				// log.info("KEY :: "+ key.toString() + " VALUE :: "+ value.toString());
+//				JSONArray jsonArray = (JSONArray) json.get(key);
+//
+//				Document document = new Document();
+//
+//
+//				List<Document> documentList = new ArrayList<>();
+//				jsonArray.forEach((valueArray) -> {
+//					//JSONObject jsonObject = (JSONObject) valueArray;
+//
+//					//Document document = new Document();
+//					document.append("_id", new ObjectId());
+//					document.append("example", valueArray);
+//
+//					documentList.add(document);
+//				});
+//				//log.info("LIST :: " + documentList.toString());
+//				MongoCollection<Document> collection = database.getCollection(key.toString());
+//				InsertManyResult results = collection.insertMany(documentList);
+//				log.info("Inserted documents: " + results.getInsertedIds());
+//			});
+//		} catch (ParseException | MongoException e) {
+//			log.error("Unable to insert due to an error: " + e);
+//		}
+//    }
+
+	public void transformManyToManyTables(String row){
+		JSONParser parser = new JSONParser();
+		try (MongoClient mongoClient = MongoClients.create(settings)){
+			JSONObject json = (JSONObject) parser.parse(row);
+			log.info(json.toString());
+			List<Document> listDocuments = new ArrayList<>();
 			MongoDatabase database = mongoClient.getDatabase("Migrator"); // create database
 
-			for (String keyItem : keys) {
-				List<Document> listDocuments = new ArrayList<>();
-				JSONArray jsonArray = (JSONArray)json.get(keyItem);
 
-				jsonArray.forEach((value) ->{
-					ObjectId id = new ObjectId();
-					Document document = Document.parse((String) value);
-					document.append("_id", id);
-					listDocuments.add(document);
+			json.keySet().forEach(item ->{
+				JSONArray jsonArray = (JSONArray)json.get(item);
+				jsonArray.forEach(value -> {
+					Document newDoc = Document.parse(value.toString());
+					//JSONArray jsonArray1 = json.get(value);
+					newDoc.append("_id", new ObjectId());
+					listDocuments.add(newDoc);
 				});
-
-				MongoCollection<Document> collection = database.getCollection(keyItem);
-
+				log.info(listDocuments.toString());
+				MongoCollection<Document> collection = database.getCollection(item.toString());
 				InsertManyResult results = collection.insertMany(listDocuments);
 				log.info("Inserted documents: " + results.getInsertedIds());
-			}
-		} catch (ParseException e) {
-			log.error(e.getMessage() + e.getCause());
-		}catch (MongoException e) {
-			log.error("Unable to insert due to an error: " + e);
+			});
+		}catch (Exception e){
+			log.error("Unable to insert: " + e);
 		}
 	}
 }

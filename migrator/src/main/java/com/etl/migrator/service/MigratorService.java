@@ -1,6 +1,7 @@
 package com.etl.migrator.service;
 
 import com.etl.migrator.constants.Constants;
+import com.etl.migrator.dto.ManyTableDTO;
 import com.etl.migrator.dto.OneTableDTO;
 import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.dto.CollectionDTO;
@@ -38,6 +39,9 @@ public class MigratorService {
 
     @Value(value = "${message.topicManyTables.name}")
     private String topicManyTables;
+
+    @Value(value = "${message.topicManyToManyTables.name}")
+    private String topicManyToManyTables;
 
     @Autowired
     public MigratorService(ApplicationContext context) throws SQLException {
@@ -172,7 +176,9 @@ public class MigratorService {
                 pojoFather = new Properties();
 
                 for (int i = 1; i <= fromColumnsCount; i++) {
-                    pojoFather.put(metadata.getColumnName(i), rs.getString(i));
+                    pojoFather.put(
+                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
                 }
 
 
@@ -240,7 +246,6 @@ public class MigratorService {
                         ResultSetMetaData metadata = rs.getMetaData();
                         Properties pojoFather = new Properties();
 
-
                         while(rs.next()){
                             for (int i = 1; i <= fromColumnsCount; i++) {
                                 pojoFather.put(
@@ -298,4 +303,194 @@ public class MigratorService {
         });
 		return cad.toString();
 	}
+
+    public String processManyToMany(CollectionDTO manyDTO) throws SQLException {
+        MessageProducer producer = context.getBean(MessageProducer.class);
+        String db = manyDTO.getDatabase();
+        String pivotTable = manyDTO.getPivotTable();
+        log.info("Fetching data from TABLE :: " + pivotTable);
+        LinkedHashMap<String, Object> mapValues = new LinkedHashMap<>();
+
+        //int columnsCount = 0;
+        //String table = manyDTO.getPrimaryTable();
+        String querySQL = "SELECT * FROM " + db + "." + pivotTable;
+        for(ManyTableDTO item : manyDTO.getManyTable()){
+            String table = item.getPrimaryTable();
+            querySQL += " INNER JOIN " + db + "." + table + " ON " + table + "." + item.getPrimaryKey() + "=" + pivotTable + "." + item.getForeignKey() + " ";
+        }
+        //log.info("QUERY  :::: "+ querySQL);
+
+        try {
+            List<String> documents = new ArrayList<>();
+            ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
+            ResultSetMetaData metadata = rs.getMetaData();
+            Properties pojoFather = new Properties();
+
+            // consultar la primera tabla
+            // hacer el for para la segunda tabla ....
+            while(rs.next()) {
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    pojoFather.put(
+                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
+                }
+                String doc = "{" + extractValues(pojoFather) + "}";
+                documents.add(doc);
+            }
+            mapValues.put(pivotTable, documents);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        JSONObject json = new JSONObject(mapValues);
+        log.info("Sending data to Producer ...");
+        producer.sendMessage(topicManyTables, json.toString());
+
+        return json.toString().replace("\"", "").replace("\\","");
+    }
+
+    public String processManyToManyDifferentDoc(CollectionDTO manyDTO) throws SQLException {
+        MessageProducer producer = context.getBean(MessageProducer.class);
+        String db = manyDTO.getDatabase();
+        String pivotTable = manyDTO.getPivotTable();
+        Properties pojoFather;
+        List<Properties> listFathers = new ArrayList<>();
+
+        List<Object> list = new ArrayList<>();
+
+        // formar el String completo
+        String querySQL = "";
+        String temp1 = "";
+        for(ManyTableDTO item : manyDTO.getManyTable()){
+            String table = item.getPrimaryTable();
+            temp1 +=  db + "." + table + ".* ,";
+            querySQL += " INNER JOIN " + db + "." + table + " ON " + table + "." + item.getPrimaryKey() + "=" + pivotTable + "." + item.getForeignKey() + " ";
+        }
+        temp1 = temp1.substring(0, temp1.length() - 1);
+        querySQL = "SELECT " + temp1 + " FROM " + db + "." + pivotTable + querySQL;
+
+
+        try {
+            pojoFather = new Properties();
+            ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
+            ResultSetMetaData metadata = rs.getMetaData();
+            int columnCount = rs.getMetaData().getColumnCount(); // todo el RS
+
+            while(rs.next()) {
+                // primera tabla
+                LinkedHashMap<String, Object> mapGeneral = new LinkedHashMap<>();
+                Properties pojoSon1 = new Properties();
+                String tableIndex1 = manyDTO.getManyTable().get(0).getPrimaryTable();
+                int columnCount1 =  getListColumns(db, tableIndex1).size();
+
+                for (int i = 1; i <= columnCount1; i++) {
+                    pojoSon1.put(
+                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
+                }
+                String pojoSonJson1 =  extractValues(pojoSon1);
+                pojoSonJson1 = "{" + pojoSonJson1.substring(0, pojoSonJson1.length() -1) + "}";
+
+                // segunda tabla
+                Properties pojoSon2 = new Properties();
+                String tableIndex2 = manyDTO.getManyTable().get(1).getPrimaryTable();
+                for (int i = columnCount1 + 1; i <= columnCount; i++) {  /// columnCount tamaño RS general
+                    pojoSon2.put(
+                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
+                }
+                String pojoSonJson2 =  extractValues(pojoSon2);
+                pojoSonJson2 = "{" + pojoSonJson2.substring(0, pojoSonJson2.length() -1) + "}";
+
+                pojoFather.put("collection", db);
+                pojoFather.put("migrationMode", "nested");
+                pojoFather.put("table", pivotTable);
+                pojoFather.put("children1", tableIndex1);
+                pojoFather.put("children2", tableIndex2);
+
+                String doc = "{";
+                doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
+                doc+= "\"" + tableIndex1 + "\":" + pojoSonJson1;
+                doc+= ",\"" + tableIndex2+ "\":" + pojoSonJson2 + "}";
+
+                log.info(doc);
+                producer.sendMessage(topicManyTables, doc);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return pojoFather.toString();//json.toString().replace("\"", "").replace("\\","");
+    }
+
+//    public String processManyToManyDifferentDoc(CollectionDTO manyDTO) throws SQLException {
+//        MessageProducer producer = context.getBean(MessageProducer.class);
+//        String db = manyDTO.getDatabase();
+//        String pivotTable = manyDTO.getPivotTable();
+//        log.info("Fetching data from TABLE :: " + pivotTable);
+//        LinkedHashMap<String, Object> mapValues = new LinkedHashMap<>();
+//
+//        List<Object> list = new ArrayList<>();
+//
+//        // formar el String completo
+//        String querySQL = "";
+//        String temp1 = "";
+//        for(ManyTableDTO item : manyDTO.getManyTable()){
+//            String table = item.getPrimaryTable();
+//            temp1 +=  db + "." + table + ".* ,";
+//            querySQL += " INNER JOIN " + db + "." + table + " ON " + table + "." + item.getPrimaryKey() + "=" + pivotTable + "." + item.getForeignKey() + " ";
+//        }
+//        temp1 = temp1.substring(0, temp1.length() - 1);
+//        querySQL = "SELECT " + temp1 + " FROM " + db + "." + pivotTable + querySQL;
+//
+//        try {
+//            List<String> documents = new ArrayList<>();
+//            ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
+//            ResultSetMetaData metadata = rs.getMetaData();
+//            int columnCount = rs.getMetaData().getColumnCount(); // todo el RS
+//
+//            while(rs.next()) {
+//                // primera tabla
+//                LinkedHashMap<String, Object> mapGeneral = new LinkedHashMap<>();
+//                Properties pojoSon1 = new Properties();
+//                String tableIndex1 = manyDTO.getManyTable().get(0).getPrimaryTable();
+//                int columnCount1 =  getListColumns(db, tableIndex1).size();
+//
+//                for (int i = 1; i <= columnCount1; i++) {  // tamaño primer tabla
+//                    pojoSon1.put(
+//                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+//                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
+//                }
+//                String doc = "{" + extractValues(pojoSon1) + "}";
+//                mapGeneral.put("employee", doc);
+//
+//
+//                // segunda tabla
+//                Properties pojoSon2 = new Properties();
+//                //String tableIndex2 = manyDTO.getManyTable().get(1).getPrimaryTable(); // tabla index 2
+//                //int columnCount2 =  getListColumns(db, tableIndex1).size();
+//                for (int i = columnCount1 + 1; i <= columnCount; i++) {  /// columnCount tamaño RS general
+//                    pojoSon2.put(
+//                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+//                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
+//                }
+//                doc = "{" + extractValues(pojoSon2) + "}";
+//                mapGeneral.put("skill", doc);
+//
+//                log.info(mapGeneral.toString());
+//                list.add(mapGeneral);
+//            }
+//        } catch (SQLException e) {
+//            throw new RuntimeException(e);
+//        }
+//
+//        log.info("LIST :: " + list);
+//
+//       // JSONObject json = new JSONObject(mapValues);
+//        JSONObject json = new JSONObject();
+//        json.put(pivotTable, list);
+////        log.info("Sending data to Producer ...");
+//        producer.sendMessage(topicManyToManyTables, json.toString());
+//
+//        return json.toString().replace("\"", "").replace("\\","");
+//    }
 }
