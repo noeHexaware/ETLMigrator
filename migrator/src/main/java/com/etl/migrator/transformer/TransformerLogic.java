@@ -4,7 +4,10 @@ import java.util.*;
 
 import com.etl.migrator.constants.Constants;
 import com.fasterxml.jackson.databind.JsonSerializer;
+import com.mongodb.*;
+import com.mongodb.client.model.*;
 import com.mongodb.client.result.InsertManyResult;
+import com.mongodb.client.result.UpdateResult;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -14,11 +17,6 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
-import com.mongodb.MongoException;
-import com.mongodb.ServerApi;
-import com.mongodb.ServerApiVersion;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -27,6 +25,9 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.result.InsertOneResult;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.aggregation.StringOperators;
+
+import static com.mongodb.client.model.Filters.eq;
 
 @Slf4j
 public class TransformerLogic {
@@ -191,13 +192,24 @@ public class TransformerLogic {
 		try (MongoClient mongoClient = MongoClients.create(settings)){
 
 			JSONObject json = (JSONObject) parser.parse(row);
-			MongoDatabase database = mongoClient.getDatabase("Migrator");
+			String databaseName = json.get("database").toString();
+			MongoDatabase database = mongoClient.getDatabase(databaseName);
 
 			String masterTable = json.get("table").toString();
 			String children1 = json.get("children1").toString();
 			String children2 = json.get("children2").toString();
+			String firstPK = json.get("firstPK").toString();
+			String secondPK = json.get("secondPK").toString();
+			//log.info("FIRST PK :: " + firstPK);
+
+			JSONObject resultObject1 = (JSONObject) json.get(children1);
+			String valueFirstPK = resultObject1.get(firstPK).toString();
+			JSONObject resultObject2 = (JSONObject) json.get(children2);
+			String valueSecondPK = resultObject2.get(secondPK).toString();
+
 
 			//created nestedDoc because it will be added to the array if there is a department on the mongodb
+
 			Document nestedDoc = new Document();
 
 			((Map<String, Object>) json.get(children1)).forEach((key, value) ->{
@@ -213,19 +225,32 @@ public class TransformerLogic {
 				}
 			});
 
-			// Validar si existe el registro
-			Document doc = new Document();
-
 			MongoCollection<Document> collect = database.getCollection(masterTable);
-			List<Document> docList = new ArrayList<>();
-			List<Document> docList2 = new ArrayList<>();
-			docList.add(nestedDoc);
-			docList2.add(nestedDoc2);
-			doc.append(children1, docList);
-			doc.append(children2, docList2);
 
-			InsertOneResult result = collect.insertOne(doc);
-			System.out.println("Result ::: " + result);
+			Document document = collect.find(eq(children1 + "." + firstPK, valueFirstPK)).first();
+			if(document != null){
+
+				BasicDBObject query = new BasicDBObject();
+				query.put(children1 + "." + firstPK, valueFirstPK);
+				query.put(children2 + "." + secondPK, valueSecondPK);
+
+				FindIterable<Document> docCols = collect.find(query);
+				MongoCursor<Document> cursor = docCols.cursor();
+
+				if(!cursor.hasNext()){
+					// Update document push
+					UpdateResult updateResult = collect.updateOne(
+							Filters.eq(children1 + "." + firstPK, valueFirstPK),
+							Updates.combine(Updates.push("skills_2", nestedDoc2)));
+					log.info("Result updateOne ::: " + updateResult);
+				}
+			}else{
+				Document doc = new Document();
+				doc.append(children1, nestedDoc);
+				doc.append(children2, nestedDoc2);
+				InsertOneResult result = collect.insertOne(doc);
+				System.out.println("Result insertOne ::: " + result);
+			}
 
 		} catch (MongoException me) {
 			log.error("Unable to insert due to an error: " + me);

@@ -353,12 +353,9 @@ public class MigratorService {
         MessageProducer producer = context.getBean(MessageProducer.class);
         String db = manyDTO.getDatabase();
         String pivotTable = manyDTO.getPivotTable();
+        List<String> result = new ArrayList<>();
         Properties pojoFather;
-        List<Properties> listFathers = new ArrayList<>();
 
-        List<Object> list = new ArrayList<>();
-
-        // formar el String completo
         String querySQL = "";
         String temp1 = "";
         for(ManyTableDTO item : manyDTO.getManyTable()){
@@ -378,9 +375,9 @@ public class MigratorService {
 
             while(rs.next()) {
                 // primera tabla
-                LinkedHashMap<String, Object> mapGeneral = new LinkedHashMap<>();
                 Properties pojoSon1 = new Properties();
                 String tableIndex1 = manyDTO.getManyTable().get(0).getPrimaryTable();
+                String firstPK = manyDTO.getManyTable().get(0).getPrimaryKey();
                 int columnCount1 =  getListColumns(db, tableIndex1).size();
 
                 for (int i = 1; i <= columnCount1; i++) {
@@ -394,6 +391,7 @@ public class MigratorService {
                 // segunda tabla
                 Properties pojoSon2 = new Properties();
                 String tableIndex2 = manyDTO.getManyTable().get(1).getPrimaryTable();
+                String secondPK = manyDTO.getManyTable().get(1).getPrimaryKey();
                 for (int i = columnCount1 + 1; i <= columnCount; i++) {  /// columnCount tamaño RS general
                     pojoSon2.put(
                             nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
@@ -402,11 +400,12 @@ public class MigratorService {
                 String pojoSonJson2 =  extractValues(pojoSon2);
                 pojoSonJson2 = "{" + pojoSonJson2.substring(0, pojoSonJson2.length() -1) + "}";
 
-                pojoFather.put("collection", db);
-                pojoFather.put("migrationMode", "nested");
+                pojoFather.put("database", db);
                 pojoFather.put("table", pivotTable);
                 pojoFather.put("children1", tableIndex1);
                 pojoFather.put("children2", tableIndex2);
+                pojoFather.put("firstPK", firstPK);
+                pojoFather.put("secondPK", secondPK);
 
                 String doc = "{";
                 doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
@@ -415,11 +414,12 @@ public class MigratorService {
 
                 log.info(doc);
                 producer.sendMessage(topicManyTables, doc);
+                result.add(doc);
             }
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-        return pojoFather.toString();//json.toString().replace("\"", "").replace("\\","");
+        return result.toString();//json.toString().replace("\"", "").replace("\\","");
     }
 
 //    public String processManyToManyDifferentDoc(CollectionDTO manyDTO) throws SQLException {
