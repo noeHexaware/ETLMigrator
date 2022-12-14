@@ -311,14 +311,11 @@ public class MigratorService {
         log.info("Fetching data from TABLE :: " + pivotTable);
         LinkedHashMap<String, Object> mapValues = new LinkedHashMap<>();
 
-        //int columnsCount = 0;
-        //String table = manyDTO.getPrimaryTable();
         String querySQL = "SELECT * FROM " + db + "." + pivotTable;
         for(ManyTableDTO item : manyDTO.getManyTable()){
             String table = item.getPrimaryTable();
             querySQL += " INNER JOIN " + db + "." + table + " ON " + table + "." + item.getPrimaryKey() + "=" + pivotTable + "." + item.getForeignKey() + " ";
         }
-        //log.info("QUERY  :::: "+ querySQL);
 
         try {
             List<String> documents = new ArrayList<>();
@@ -326,8 +323,6 @@ public class MigratorService {
             ResultSetMetaData metadata = rs.getMetaData();
             Properties pojoFather = new Properties();
 
-            // consultar la primera tabla
-            // hacer el for para la segunda tabla ....
             while(rs.next()) {
                 for (int i = 1; i <= metadata.getColumnCount(); i++) {
                     pojoFather.put(
@@ -349,6 +344,12 @@ public class MigratorService {
         return json.toString().replace("\"", "").replace("\\","");
     }
 
+    /**
+     * Process many to many relationship
+     * @param manyDTO
+     * @return
+     * @throws SQLException
+     */
     public String processManyToManyDifferentDoc(CollectionDTO manyDTO) throws SQLException {
         MessageProducer producer = context.getBean(MessageProducer.class);
         String db = manyDTO.getDatabase();
@@ -366,7 +367,6 @@ public class MigratorService {
         temp1 = temp1.substring(0, temp1.length() - 1);
         querySQL = "SELECT " + temp1 + " FROM " + db + "." + pivotTable + querySQL;
 
-
         try {
             pojoFather = new Properties();
             ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
@@ -374,7 +374,7 @@ public class MigratorService {
             int columnCount = rs.getMetaData().getColumnCount(); // todo el RS
 
             while(rs.next()) {
-                // primera tabla
+                // first table
                 Properties pojoSon1 = new Properties();
                 String tableIndex1 = manyDTO.getManyTable().get(0).getPrimaryTable();
                 String firstPK = manyDTO.getManyTable().get(0).getPrimaryKey();
@@ -388,11 +388,11 @@ public class MigratorService {
                 String pojoSonJson1 =  extractValues(pojoSon1);
                 pojoSonJson1 = "{" + pojoSonJson1.substring(0, pojoSonJson1.length() -1) + "}";
 
-                // segunda tabla
+                // second table
                 Properties pojoSon2 = new Properties();
                 String tableIndex2 = manyDTO.getManyTable().get(1).getPrimaryTable();
                 String secondPK = manyDTO.getManyTable().get(1).getPrimaryKey();
-                for (int i = columnCount1 + 1; i <= columnCount; i++) {  /// columnCount tamaño RS general
+                for (int i = columnCount1 + 1; i <= columnCount; i++) {  /// columnCount --> RS size
                     pojoSon2.put(
                             nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
                             nonNull(rs.getString(i)) ? rs.getString(i) : "");
@@ -419,6 +419,6 @@ public class MigratorService {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-        return result.toString();//json.toString().replace("\"", "").replace("\\","");
+        return result.toString();
     }
 }

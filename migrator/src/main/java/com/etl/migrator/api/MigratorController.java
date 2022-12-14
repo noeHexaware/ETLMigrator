@@ -60,7 +60,6 @@ public class MigratorController {
 
     @PostMapping("processManyToMany")
     public ResponseEntity<Object> processManyToMany(@RequestBody CollectionDTO dto) throws SQLException {
-        //String data = migratorService.processManyToMany(dto);
         String data = migratorService.processManyToManyDifferentDoc(dto);
         return ResponseEntity.ok(data);
     }

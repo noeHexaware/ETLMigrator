@@ -200,16 +200,13 @@ public class TransformerLogic {
 			String children2 = json.get("children2").toString();
 			String firstPK = json.get("firstPK").toString();
 			String secondPK = json.get("secondPK").toString();
-			//log.info("FIRST PK :: " + firstPK);
 
 			JSONObject resultObject1 = (JSONObject) json.get(children1);
 			String valueFirstPK = resultObject1.get(firstPK).toString();
 			JSONObject resultObject2 = (JSONObject) json.get(children2);
 			String valueSecondPK = resultObject2.get(secondPK).toString();
 
-
 			//created nestedDoc because it will be added to the array if there is a department on the mongodb
-
 			Document nestedDoc = new Document();
 
 			((Map<String, Object>) json.get(children1)).forEach((key, value) ->{
@@ -226,10 +223,8 @@ public class TransformerLogic {
 			});
 
 			MongoCollection<Document> collect = database.getCollection(masterTable);
-
 			Document document = collect.find(eq(children1 + "." + firstPK, valueFirstPK)).first();
-			if(document != null){
-
+			if(document != null){ // update Document
 				BasicDBObject query = new BasicDBObject();
 				query.put(children1 + "." + firstPK, valueFirstPK);
 				query.put(children2 + "." + secondPK, valueSecondPK);
@@ -237,22 +232,12 @@ public class TransformerLogic {
 				FindIterable<Document> docCols = collect.find(query);
 				MongoCursor<Document> cursor = docCols.cursor();
 
-//				Document query1 = new Document().append(children1 + "." + firstPK, valueFirstPK);
-//				Bson updates = Updates.combine(Updates.push(children2, nestedDoc2));
-//
-//				if(!cursor.hasNext()){
-//					UpdateResult updateResult = collect.updateOne(query1, updates); //, options);
-//					log.info("updateResult :::" + updateResult);
-//				}
-
 				if(!cursor.hasNext()){
-					// Update document push
 					UpdateResult updateResult = collect.updateOne(
 							Filters.eq(children1 + "." + firstPK, valueFirstPK),
 							Updates.combine(Updates.push(children2, nestedDoc2)));
 					log.info("Result updateOne ::: " + updateResult);
 				}
-
 			}else{
 				Document doc = new Document();
 				doc.append(children1, nestedDoc);
@@ -277,7 +262,6 @@ public class TransformerLogic {
 			log.info(json.toString());
 			List<Document> listDocuments = new ArrayList<>();
 			MongoDatabase database = mongoClient.getDatabase("Migrator"); // create database
-
 
 			json.keySet().forEach(item ->{
 				JSONArray jsonArray = (JSONArray)json.get(item);
