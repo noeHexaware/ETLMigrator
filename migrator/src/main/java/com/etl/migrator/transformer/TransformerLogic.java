@@ -237,95 +237,38 @@ public class TransformerLogic {
 				FindIterable<Document> docCols = collect.find(query);
 				MongoCursor<Document> cursor = docCols.cursor();
 
+//				Document query1 = new Document().append(children1 + "." + firstPK, valueFirstPK);
+//				Bson updates = Updates.combine(Updates.push(children2, nestedDoc2));
+//
+//				if(!cursor.hasNext()){
+//					UpdateResult updateResult = collect.updateOne(query1, updates); //, options);
+//					log.info("updateResult :::" + updateResult);
+//				}
+
 				if(!cursor.hasNext()){
 					// Update document push
 					UpdateResult updateResult = collect.updateOne(
 							Filters.eq(children1 + "." + firstPK, valueFirstPK),
-							Updates.combine(Updates.push("skills_2", nestedDoc2)));
+							Updates.combine(Updates.push(children2, nestedDoc2)));
 					log.info("Result updateOne ::: " + updateResult);
 				}
+
 			}else{
 				Document doc = new Document();
 				doc.append(children1, nestedDoc);
-				doc.append(children2, nestedDoc2);
+				List<Document> documentList = new ArrayList<>();
+				documentList.add(nestedDoc2);
+				doc.append(children2, documentList);
 				InsertOneResult result = collect.insertOne(doc);
 				System.out.println("Result insertOne ::: " + result);
 			}
-
 		} catch (MongoException me) {
 			log.error("Unable to insert due to an error: " + me);
 		} catch (ParseException e) {
 			log.error(e.getMessage());
 		}
-
 	}
 
-	/**Inserta un array de objetos **/
-//	public void transformDataManyTables(String data){
-//		JSONParser parser = new JSONParser();
-//
-//		try(MongoClient mongoClient = MongoClients.create(settings)){
-//			JSONObject json = (JSONObject) parser.parse(data);
-//			Set<String> keys = json.keySet();
-//			MongoDatabase database = mongoClient.getDatabase("Migrator"); // create database
-//
-//			for (String keyItem : keys) {
-//				List<Document> listDocuments = new ArrayList<>();
-//				JSONArray jsonArray = (JSONArray)json.get(keyItem);
-//
-//				jsonArray.forEach((value) ->{
-//					ObjectId id = new ObjectId();
-//					Document document = Document.parse((String) value);
-//					document.append("_id", id);
-//					listDocuments.add(document);
-//				});
-//
-//				MongoCollection<Document> collection = database.getCollection(keyItem);
-//
-//				InsertManyResult results = collection.insertMany(listDocuments);
-//				log.info("Inserted documents: " + results.getInsertedIds());
-//			}
-//		} catch (ParseException e) {
-//			log.error(e.getMessage() + e.getCause());
-//		}catch (MongoException e) {
-//			log.error("Unable to insert due to an error: " + e);
-//		}
-//	}
-
-//    public void transformManyToManyTables(String data)  {
-//
-//		try (MongoClient mongoClient = MongoClients.create(settings)){
-//			JSONParser parser = new JSONParser();
-//			JSONObject json = (JSONObject) parser.parse(data);
-//			log.info(json.toString());
-//			MongoDatabase database = mongoClient.getDatabase("Migrator"); // create database
-//
-//			json.forEach((key, value) -> {
-//				// log.info("KEY :: "+ key.toString() + " VALUE :: "+ value.toString());
-//				JSONArray jsonArray = (JSONArray) json.get(key);
-//
-//				Document document = new Document();
-//
-//
-//				List<Document> documentList = new ArrayList<>();
-//				jsonArray.forEach((valueArray) -> {
-//					//JSONObject jsonObject = (JSONObject) valueArray;
-//
-//					//Document document = new Document();
-//					document.append("_id", new ObjectId());
-//					document.append("example", valueArray);
-//
-//					documentList.add(document);
-//				});
-//				//log.info("LIST :: " + documentList.toString());
-//				MongoCollection<Document> collection = database.getCollection(key.toString());
-//				InsertManyResult results = collection.insertMany(documentList);
-//				log.info("Inserted documents: " + results.getInsertedIds());
-//			});
-//		} catch (ParseException | MongoException e) {
-//			log.error("Unable to insert due to an error: " + e);
-//		}
-//    }
 
 	public void transformManyToManyTables(String row){
 		JSONParser parser = new JSONParser();
@@ -340,7 +283,6 @@ public class TransformerLogic {
 				JSONArray jsonArray = (JSONArray)json.get(item);
 				jsonArray.forEach(value -> {
 					Document newDoc = Document.parse(value.toString());
-					//JSONArray jsonArray1 = json.get(value);
 					newDoc.append("_id", new ObjectId());
 					listDocuments.add(newDoc);
 				});
