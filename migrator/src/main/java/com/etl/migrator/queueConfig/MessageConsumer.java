@@ -51,7 +51,7 @@ public class MessageConsumer {
     
     @SneakyThrows
     private void sleep() {
-        Thread.sleep(5000);
+        Thread.sleep(50);
     }
 
     @KafkaListener(topics = "${message.topic.name}", groupId = "group2", containerFactory = "group2KafkaListenerContainerFactory")

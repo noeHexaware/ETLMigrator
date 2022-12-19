@@ -1,7 +1,6 @@
 package com.etl.migrator.queueConfig;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.util.concurrent.ListenableFuture;
@@ -11,18 +10,6 @@ public class MessageProducer {
 
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
-
-    @Value(value = "${message.topic.name}")
-    private String topicName;
-    
-    @Value(value = "${message.topicOneTable.name}")
-    private String topicNameOneTable;
-
-    @Value(value = "${partitioned.topic.name}")
-    private String partitionedTopicName;
-
-    @Value(value = "${filtered.topic.name}")
-    private String filteredTopicName;
 
     public void sendMessage(String topicName, String message) {
 

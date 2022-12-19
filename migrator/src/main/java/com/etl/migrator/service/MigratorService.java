@@ -1,14 +1,18 @@
 package com.etl.migrator.service;
 
 import com.etl.migrator.constants.Constants;
+import com.etl.migrator.constants.NestedDocTransformed;
 import com.etl.migrator.dto.OneTableDTO;
 import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.dto.CollectionDTO;
 import com.etl.migrator.queueConfig.MessageConsumer;
 import com.etl.migrator.queueConfig.MessageProducer;
+import com.etl.migrator.transformer.TransformerLogic;
 
 import lombok.extern.slf4j.Slf4j;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
@@ -69,16 +73,17 @@ public class MigratorService {
      * @param tableParams
      * @return
      * @throws SQLException
+     * @throws ParseException 
      */
-    public String makeCollection(TableDTO tableParams) throws SQLException {
+    public String makeCollection(TableDTO tableParams) throws SQLException, ParseException {
         String fromTable, fromIdKey, toTable, foreignKey, db, migrationMode;
 
-        MessageProducer producer = context.getBean(MessageProducer.class);
-        MessageConsumer listener = context.getBean(MessageConsumer.class);
+        //MessageProducer producer = context.getBean(MessageProducer.class);
+        //MessageConsumer listener = context.getBean(MessageConsumer.class);
 
         //Sending a Hello World message to topic 'topic1' - defined in app properties.
         Properties pojoFather;
-        List<Properties> listFathers = new ArrayList<>();
+        Map<Object, Properties> listFathers = new HashMap<Object, Properties>();
 
         // get params
         fromTable = tableParams.getFromTable();
@@ -91,12 +96,15 @@ public class MigratorService {
 
         // get metadata from Table in MySQL
         String querySQL = "SELECT " + /*+ fromColumnsCount +", " + fromTable + ".*, " + toTable + */"* FROM " + db + "." + fromTable
-                + " INNER JOIN " + db + "." + toTable + " ON " + fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey + " ORDER BY " + fromIdKey + ";";
+                + " LEFT JOIN " + db + "." + toTable + " ON " + fromTable + "." + fromIdKey + "=" + toTable + "." + foreignKey 
+                + " ORDER BY "+ db + "." + fromTable + "." + fromIdKey + " ;";
         System.out.println(querySQL);
         ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
 
         ResultSetMetaData metadata = rs.getMetaData();
         int columnCount = metadata.getColumnCount();
+        
+        TransformerLogic trans = new TransformerLogic();
 
         while (rs.next()) {
             pojoFather = new Properties();
@@ -109,36 +117,67 @@ public class MigratorService {
             for (int i = fromColumnsCount + 1; i <= columnCount; i++) {
                 pojoSon.put(metadata.getColumnName(i), rs.getString(i));
             }
+            
+            String primKeyValue = pojoFather.getProperty(fromIdKey);
+            boolean exists = false;
+            if(listFathers.containsKey(primKeyValue)) {
+            	exists = true;
+            	ArrayList<Properties> children = (ArrayList<Properties>) listFathers.get(primKeyValue).get("children");
+            	children.add(pojoSon);
+            	listFathers.get(primKeyValue).replace("children", children);
+            		//break;
+            	
+            }
+            
+            if(!exists) {
+	            //fixed tags to manage the connection, collection and nested Doc
+//	            pojoFather.put("collection", db);
+//	            pojoFather.put("childrenName", toTable);
+//	            pojoFather.put("masterPk", fromIdKey);
+//	            pojoFather.put("migrationMode", migrationMode);
+//	            pojoFather.put("masterTable", fromTable);
+//	            pojoFather.put("nestedPk", foreignKey);
+	
+	            ArrayList<Properties> childrens = new ArrayList<Properties>();
+	            childrens.add(pojoSon);
+	            pojoFather.put("children", childrens);
+	            
+	            //to send the response to postman
+	            listFathers.put(primKeyValue, pojoFather);
+            }
 
-            String pojoSonJson = "{";
-            pojoSonJson += extractValues(pojoSon);
-            pojoSonJson = pojoSonJson.substring(0, pojoSonJson.length() - 1) + "}";
-
-            //fixed tags to manage the connection, collection and nested Doc
-            pojoFather.put("collection", db);
-            pojoFather.put("childrenName", toTable);
-            pojoFather.put("masterPk", fromIdKey);
-            pojoFather.put("migrationMode", migrationMode);
-            pojoFather.put("masterTable", fromTable);
-            pojoFather.put("nestedPk", foreignKey);
-
-            String doc = "{";
-            doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
-            doc+= "\"children\":" + pojoSonJson + "}";
-
-            //to send the response to postman
-            listFathers.add(pojoFather);
-
+        }
+        
+        ArrayList<JSONObject> docs = new ArrayList<>();
+        JSONParser parser = new JSONParser();
+        System.out.println("Document processing :: start ");
+        listFathers.forEach((key, value) -> {
+        	Properties father = value;
+        	StringBuilder doc = new StringBuilder("{");
+            doc.append(extractValues(father)); //method to create the json structure as string to work with on transformer stage
+            String pojoSonJson ="[";
+            
+            ArrayList<Properties> children = (ArrayList<Properties>) father.get("children");
+            for(Properties child : children) {
+            	pojoSonJson += "{";
+            	pojoSonJson += extractValues(child);
+            	pojoSonJson += "},";
+            }
+            pojoSonJson = pojoSonJson.substring(0, pojoSonJson.length() - 1);
+            
+            doc.append("\"" + toTable +"\":" + pojoSonJson + "]}");
+            //System.out.println("Document :: " + doc);
+            try {
+				docs.add((JSONObject) parser.parse(doc.toString()));
+			} catch (ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+            
             // send message to the producer
-            producer.sendMessage(topicName, doc);
-
-        }
-        try {
-            listener.latch.await(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+            //producer.sendMessage(topicName, doc);
+        });
+        trans.transformDataNested(new NestedDocTransformed(fromTable, docs));
         return listFathers.toString();
     }
 
@@ -280,7 +319,10 @@ public class MigratorService {
                         result.append(makeCollection(item));
                     } catch (SQLException e) {
                         throw new RuntimeException(e);
-                    }
+                    } catch (ParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
                 }
         );
         return result.toString();
@@ -294,7 +336,8 @@ public class MigratorService {
     public String extractValues(Properties pojoFather) {
         StringBuilder cad = new StringBuilder("");
         pojoFather.forEach((key, val) -> {
-            cad.append("\"" + key + "\":\"" + val + "\",");
+        	if(!key.equals("children"))//because it needs to be process as a nested document.
+        		cad.append("\"" + key + "\":\"" + val + "\",");
         });
 		return cad.toString();
 	}
