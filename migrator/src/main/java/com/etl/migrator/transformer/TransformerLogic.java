@@ -185,6 +185,10 @@ public class TransformerLogic {
 		}
 	}
 
+	/***
+	 * Proess migration with pivot table
+	 * @param row
+	 */
 
 	public void transformDataManyTables (String row) {
 		JSONParser parser = new JSONParser();
@@ -255,7 +259,11 @@ public class TransformerLogic {
 	}
 
 
-	public void transformManyToManyTables(String row){
+	/***
+	 * Process any tables
+	 * @param row
+	 */
+	public void transformAllTables(String row){
 		JSONParser parser = new JSONParser();
 		try (MongoClient mongoClient = MongoClients.create(settings)){
 			JSONObject json = (JSONObject) parser.parse(row);

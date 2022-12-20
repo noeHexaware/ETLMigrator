@@ -43,6 +43,9 @@ public class MigratorService {
     @Value(value = "${message.topicManyToManyTables.name}")
     private String topicManyToManyTables;
 
+    @Value(value = "${message.topicAllTables.name}")
+    private String topicAllTables;
+
     @Autowired
     public MigratorService(ApplicationContext context) throws SQLException {
         this.connection = DriverManager.getConnection(Constants.DATASOURCE_URL, Constants.USERNAME, Constants.PASSWORD);
@@ -66,6 +69,21 @@ public class MigratorService {
             log.error(e.getMessage());
         }
         return Columns;
+    }
+    public List<String> getTablesDB(String db) {
+        List<String> tables = new ArrayList<>();
+
+        try {
+            this.connection.setSchema(db);
+            ResultSet columns = this.connection.getMetaData().getTables(db, null, "%", null);// .getCatalogs();
+            while (columns.next()) {
+                System.out.println(columns.getString("TABLE_NAME"));
+                tables.add(columns.getString("TABLE_NAME"));
+            }
+        } catch (SQLException e) {
+            log.error(e.getMessage());
+        }
+        return tables;
     }
 
     /**
@@ -214,12 +232,7 @@ public class MigratorService {
      */
     public String processMigrationTables(CollectionDTO collectionDTO) {
         StringBuilder result = new StringBuilder();
-        if(nonNull(collectionDTO.getTables())){
-            result.append(processWithoutRelation(collectionDTO));
-        }
-        if(nonNull(collectionDTO.getRelational())){
-            result.append(",").append(processRelationManyTables(collectionDTO));
-        }
+        result.append(processWithoutRelation(collectionDTO));
         return result.toString();
     }
 
@@ -232,6 +245,10 @@ public class MigratorService {
         MessageProducer producer = context.getBean(MessageProducer.class);
         String database = collectionDTO.getDatabase();
         StringBuilder result = new StringBuilder();
+
+        if(!nonNull(collectionDTO.getTables())){
+            collectionDTO.setTables(getTablesDB(collectionDTO.getDatabase()));
+        }
 
         collectionDTO.getTables().forEach(
                 (table) -> {
@@ -258,20 +275,20 @@ public class MigratorService {
                         mapValues.put(table, documents);
 
                     } catch (Exception e) {
-                        log.error("Error fetching data from Database :: " + e.getMessage() + e.getCause());
+                        log.error("Error fetching data from Database :: " + e.getMessage() + ", " + e.getCause());
                     }
                     if(mapValues.size() > 0){
                         JSONObject json = new JSONObject(mapValues);
                         log.info("Sending data to Producer ...");
                         result.append(mapValues);
-                        producer.sendMessage(topicManyTables, json.toString());
+                        producer.sendMessage(topicAllTables, json.toString());
                     }
                 });
         return result.toString().replace("\"", "").replace("\\","");
     }
 
     /**
-     * Process relation between tables
+     * Process relation between tables, call Make Collection Process
      * @param collectionDTO
      * @return
      */
@@ -366,6 +383,7 @@ public class MigratorService {
         }
         temp1 = temp1.substring(0, temp1.length() - 1);
         querySQL = "SELECT " + temp1 + " FROM " + db + "." + pivotTable + querySQL;
+        log.info(querySQL);
 
         try {
             pojoFather = new Properties();
