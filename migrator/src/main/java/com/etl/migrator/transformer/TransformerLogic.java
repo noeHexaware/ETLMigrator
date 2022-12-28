@@ -1,12 +1,13 @@
 package com.etl.migrator.transformer;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import com.etl.migrator.constants.Constants;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.mongodb.*;
+import com.mongodb.client.model.*;
 import com.mongodb.client.result.InsertManyResult;
+import com.mongodb.client.result.UpdateResult;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -16,11 +17,6 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoClientSettings;
-import com.mongodb.MongoException;
-import com.mongodb.ServerApi;
-import com.mongodb.ServerApiVersion;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -29,6 +25,9 @@ import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.result.InsertOneResult;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.aggregation.StringOperators;
+
+import static com.mongodb.client.model.Filters.eq;
 
 @Slf4j
 public class TransformerLogic {
@@ -186,38 +185,106 @@ public class TransformerLogic {
 		}
 	}
 
-	/**
-	 * Migration - many tables
-	 * @param data
+	/***
+	 * Proess migration with pivot table
+	 * @param row
 	 */
-	public void transformDataManyTables(String data){
+
+	public void transformDataManyTables (String row) {
 		JSONParser parser = new JSONParser();
 
-		try(MongoClient mongoClient = MongoClients.create(settings)){
-			JSONObject json = (JSONObject) parser.parse(data);
-			Set<String> keys = json.keySet();
+		try (MongoClient mongoClient = MongoClients.create(settings)){
+
+			JSONObject json = (JSONObject) parser.parse(row);
+			String databaseName = json.get("database").toString();
+			MongoDatabase database = mongoClient.getDatabase(databaseName);
+
+			String masterTable = json.get("table").toString();
+			String children1 = json.get("children1").toString();
+			String children2 = json.get("children2").toString();
+			String firstPK = json.get("firstPK").toString();
+			String secondPK = json.get("secondPK").toString();
+
+			JSONObject resultObject1 = (JSONObject) json.get(children1);
+			String valueFirstPK = resultObject1.get(firstPK).toString();
+			JSONObject resultObject2 = (JSONObject) json.get(children2);
+			String valueSecondPK = resultObject2.get(secondPK).toString();
+
+			//created nestedDoc because it will be added to the array if there is a department on the mongodb
+			Document nestedDoc = new Document();
+
+			((Map<String, Object>) json.get(children1)).forEach((key, value) ->{
+				if(!fixedTags.contains(key)) {
+					nestedDoc.append(key.toString(), value);
+				}
+			});
+
+			Document nestedDoc2 = new Document();
+			((Map<String, Object>) json.get(children2)).forEach((key, value) ->{
+				if(!fixedTags.contains(key)) {
+					nestedDoc2.append(key.toString(), value);
+				}
+			});
+
+			MongoCollection<Document> collect = database.getCollection(masterTable);
+			Document document = collect.find(eq(children1 + "." + firstPK, valueFirstPK)).first();
+			if(document != null){ // update Document
+				BasicDBObject query = new BasicDBObject();
+				query.put(children1 + "." + firstPK, valueFirstPK);
+				query.put(children2 + "." + secondPK, valueSecondPK);
+
+				FindIterable<Document> docCols = collect.find(query);
+				MongoCursor<Document> cursor = docCols.cursor();
+
+				if(!cursor.hasNext()){
+					UpdateResult updateResult = collect.updateOne(
+							Filters.eq(children1 + "." + firstPK, valueFirstPK),
+							Updates.combine(Updates.push(children2, nestedDoc2)));
+					log.info("Result updateOne ::: " + updateResult);
+				}
+			}else{
+				Document doc = new Document();
+				doc.append(children1, nestedDoc);
+				List<Document> documentList = new ArrayList<>();
+				documentList.add(nestedDoc2);
+				doc.append(children2, documentList);
+				InsertOneResult result = collect.insertOne(doc);
+				System.out.println("Result insertOne ::: " + result);
+			}
+		} catch (MongoException me) {
+			log.error("Unable to insert due to an error: " + me);
+		} catch (ParseException e) {
+			log.error(e.getMessage());
+		}
+	}
+
+
+	/***
+	 * Process any tables
+	 * @param row
+	 */
+	public void transformAllTables(String row){
+		JSONParser parser = new JSONParser();
+		try (MongoClient mongoClient = MongoClients.create(settings)){
+			JSONObject json = (JSONObject) parser.parse(row);
+			log.info(json.toString());
+			List<Document> listDocuments = new ArrayList<>();
 			MongoDatabase database = mongoClient.getDatabase("Migrator"); // create database
 
-			for (String keyItem : keys) {
-				List<Document> listDocuments = new ArrayList<>();
-				JSONArray jsonArray = (JSONArray)json.get(keyItem);
-
-				jsonArray.forEach((value) ->{
-					ObjectId id = new ObjectId();
-					Document document = Document.parse((String) value);
-					document.append("_id", id);
-					listDocuments.add(document);
+			json.keySet().forEach(item ->{
+				JSONArray jsonArray = (JSONArray)json.get(item);
+				jsonArray.forEach(value -> {
+					Document newDoc = Document.parse(value.toString());
+					newDoc.append("_id", new ObjectId());
+					listDocuments.add(newDoc);
 				});
-
-				MongoCollection<Document> collection = database.getCollection(keyItem);
-
+				log.info(listDocuments.toString());
+				MongoCollection<Document> collection = database.getCollection(item.toString());
 				InsertManyResult results = collection.insertMany(listDocuments);
 				log.info("Inserted documents: " + results.getInsertedIds());
-			}
-		} catch (ParseException e) {
-			log.error(e.getMessage() + e.getCause());
-		}catch (MongoException e) {
-			log.error("Unable to insert due to an error: " + e);
+			});
+		}catch (Exception e){
+			log.error("Unable to insert: " + e);
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package com.etl.migrator.service;
 
 import com.etl.migrator.constants.Constants;
+import com.etl.migrator.dto.ManyTableDTO;
 import com.etl.migrator.dto.OneTableDTO;
 import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.dto.CollectionDTO;
@@ -39,6 +40,12 @@ public class MigratorService {
     @Value(value = "${message.topicManyTables.name}")
     private String topicManyTables;
 
+    @Value(value = "${message.topicManyToManyTables.name}")
+    private String topicManyToManyTables;
+
+    @Value(value = "${message.topicAllTables.name}")
+    private String topicAllTables;
+
     @Autowired
     public MigratorService(ApplicationContext context) throws SQLException {
         this.connection = DriverManager.getConnection(Constants.DATASOURCE_URL, Constants.USERNAME, Constants.PASSWORD);
@@ -62,6 +69,21 @@ public class MigratorService {
             log.error(e.getMessage());
         }
         return Columns;
+    }
+    public List<String> getTablesDB(String db) {
+        List<String> tables = new ArrayList<>();
+
+        try {
+            this.connection.setSchema(db);
+            ResultSet columns = this.connection.getMetaData().getTables(db, null, "%", null);// .getCatalogs();
+            while (columns.next()) {
+                System.out.println(columns.getString("TABLE_NAME"));
+                tables.add(columns.getString("TABLE_NAME"));
+            }
+        } catch (SQLException e) {
+            log.error(e.getMessage());
+        }
+        return tables;
     }
 
     /**
@@ -172,7 +194,9 @@ public class MigratorService {
                 pojoFather = new Properties();
 
                 for (int i = 1; i <= fromColumnsCount; i++) {
-                    pojoFather.put(metadata.getColumnName(i), rs.getString(i));
+                    pojoFather.put(
+                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
                 }
 
 
@@ -208,12 +232,7 @@ public class MigratorService {
      */
     public String processMigrationTables(CollectionDTO collectionDTO) {
         StringBuilder result = new StringBuilder();
-        if(nonNull(collectionDTO.getTables())){
-            result.append(processWithoutRelation(collectionDTO));
-        }
-        if(nonNull(collectionDTO.getRelational())){
-            result.append(",").append(processRelationManyTables(collectionDTO));
-        }
+        result.append(processWithoutRelation(collectionDTO));
         return result.toString();
     }
 
@@ -226,6 +245,10 @@ public class MigratorService {
         MessageProducer producer = context.getBean(MessageProducer.class);
         String database = collectionDTO.getDatabase();
         StringBuilder result = new StringBuilder();
+
+        if(!nonNull(collectionDTO.getTables())){
+            collectionDTO.setTables(getTablesDB(collectionDTO.getDatabase()));
+        }
 
         collectionDTO.getTables().forEach(
                 (table) -> {
@@ -240,7 +263,6 @@ public class MigratorService {
                         ResultSetMetaData metadata = rs.getMetaData();
                         Properties pojoFather = new Properties();
 
-
                         while(rs.next()){
                             for (int i = 1; i <= fromColumnsCount; i++) {
                                 pojoFather.put(
@@ -253,20 +275,20 @@ public class MigratorService {
                         mapValues.put(table, documents);
 
                     } catch (Exception e) {
-                        log.error("Error fetching data from Database :: " + e.getMessage() + e.getCause());
+                        log.error("Error fetching data from Database :: " + e.getMessage() + ", " + e.getCause());
                     }
                     if(mapValues.size() > 0){
                         JSONObject json = new JSONObject(mapValues);
                         log.info("Sending data to Producer ...");
                         result.append(mapValues);
-                        producer.sendMessage(topicManyTables, json.toString());
+                        producer.sendMessage(topicAllTables, json.toString());
                     }
                 });
         return result.toString().replace("\"", "").replace("\\","");
     }
 
     /**
-     * Process relation between tables
+     * Process relation between tables, call Make Collection Process
      * @param collectionDTO
      * @return
      */
@@ -298,4 +320,123 @@ public class MigratorService {
         });
 		return cad.toString();
 	}
+
+    public String processManyToMany(CollectionDTO manyDTO) throws SQLException {
+        MessageProducer producer = context.getBean(MessageProducer.class);
+        String db = manyDTO.getDatabase();
+        String pivotTable = manyDTO.getPivotTable();
+        log.info("Fetching data from TABLE :: " + pivotTable);
+        LinkedHashMap<String, Object> mapValues = new LinkedHashMap<>();
+
+        String querySQL = "SELECT * FROM " + db + "." + pivotTable;
+        for(ManyTableDTO item : manyDTO.getManyTable()){
+            String table = item.getPrimaryTable();
+            querySQL += " INNER JOIN " + db + "." + table + " ON " + table + "." + item.getPrimaryKey() + "=" + pivotTable + "." + item.getForeignKey() + " ";
+        }
+
+        try {
+            List<String> documents = new ArrayList<>();
+            ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
+            ResultSetMetaData metadata = rs.getMetaData();
+            Properties pojoFather = new Properties();
+
+            while(rs.next()) {
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    pojoFather.put(
+                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
+                }
+                String doc = "{" + extractValues(pojoFather) + "}";
+                documents.add(doc);
+            }
+            mapValues.put(pivotTable, documents);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        JSONObject json = new JSONObject(mapValues);
+        log.info("Sending data to Producer ...");
+        producer.sendMessage(topicManyTables, json.toString());
+
+        return json.toString().replace("\"", "").replace("\\","");
+    }
+
+    /**
+     * Process many to many relationship
+     * @param manyDTO
+     * @return
+     * @throws SQLException
+     */
+    public String processManyToManyDifferentDoc(CollectionDTO manyDTO) throws SQLException {
+        MessageProducer producer = context.getBean(MessageProducer.class);
+        String db = manyDTO.getDatabase();
+        String pivotTable = manyDTO.getPivotTable();
+        List<String> result = new ArrayList<>();
+        Properties pojoFather;
+
+        String querySQL = "";
+        String temp1 = "";
+        for(ManyTableDTO item : manyDTO.getManyTable()){
+            String table = item.getPrimaryTable();
+            temp1 +=  db + "." + table + ".* ,";
+            querySQL += " INNER JOIN " + db + "." + table + " ON " + table + "." + item.getPrimaryKey() + "=" + pivotTable + "." + item.getForeignKey() + " ";
+        }
+        temp1 = temp1.substring(0, temp1.length() - 1);
+        querySQL = "SELECT " + temp1 + " FROM " + db + "." + pivotTable + querySQL;
+        log.info(querySQL);
+
+        try {
+            pojoFather = new Properties();
+            ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
+            ResultSetMetaData metadata = rs.getMetaData();
+            int columnCount = rs.getMetaData().getColumnCount(); // todo el RS
+
+            while(rs.next()) {
+                // first table
+                Properties pojoSon1 = new Properties();
+                String tableIndex1 = manyDTO.getManyTable().get(0).getPrimaryTable();
+                String firstPK = manyDTO.getManyTable().get(0).getPrimaryKey();
+                int columnCount1 =  getListColumns(db, tableIndex1).size();
+
+                for (int i = 1; i <= columnCount1; i++) {
+                    pojoSon1.put(
+                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
+                }
+                String pojoSonJson1 =  extractValues(pojoSon1);
+                pojoSonJson1 = "{" + pojoSonJson1.substring(0, pojoSonJson1.length() -1) + "}";
+
+                // second table
+                Properties pojoSon2 = new Properties();
+                String tableIndex2 = manyDTO.getManyTable().get(1).getPrimaryTable();
+                String secondPK = manyDTO.getManyTable().get(1).getPrimaryKey();
+                for (int i = columnCount1 + 1; i <= columnCount; i++) {  /// columnCount --> RS size
+                    pojoSon2.put(
+                            nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                            nonNull(rs.getString(i)) ? rs.getString(i) : "");
+                }
+                String pojoSonJson2 =  extractValues(pojoSon2);
+                pojoSonJson2 = "{" + pojoSonJson2.substring(0, pojoSonJson2.length() -1) + "}";
+
+                pojoFather.put("database", db);
+                pojoFather.put("table", pivotTable);
+                pojoFather.put("children1", tableIndex1);
+                pojoFather.put("children2", tableIndex2);
+                pojoFather.put("firstPK", firstPK);
+                pojoFather.put("secondPK", secondPK);
+
+                String doc = "{";
+                doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
+                doc+= "\"" + tableIndex1 + "\":" + pojoSonJson1;
+                doc+= ",\"" + tableIndex2+ "\":" + pojoSonJson2 + "}";
+
+                log.info(doc);
+                producer.sendMessage(topicManyTables, doc);
+                result.add(doc);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return result.toString();
+    }
 }

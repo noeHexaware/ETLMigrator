@@ -1,5 +1,6 @@
 package com.etl.migrator.api;
 
+import com.etl.migrator.dto.ManyTableDTO;
 import com.etl.migrator.dto.OneTableDTO;
 import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.dto.CollectionDTO;
@@ -54,6 +55,12 @@ public class MigratorController {
     @PostMapping("processMigration")
     public ResponseEntity<Object> processMigrationTables(@RequestBody CollectionDTO collectionDTO) throws SQLException {
         String data = migratorService.processMigrationTables(collectionDTO);
+        return ResponseEntity.ok(data);
+    }
+
+    @PostMapping("processManyToMany")
+    public ResponseEntity<Object> processManyToMany(@RequestBody CollectionDTO dto) throws SQLException {
+        String data = migratorService.processManyToManyDifferentDoc(dto);
         return ResponseEntity.ok(data);
     }
 }

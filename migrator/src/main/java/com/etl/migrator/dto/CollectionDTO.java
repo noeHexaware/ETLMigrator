@@ -13,4 +13,6 @@ public class CollectionDTO {
     private String database;
     private List<String> tables;
     private List<TableDTO> relational;
+    private String pivotTable;
+    private List<ManyTableDTO> manyTable;
 }
