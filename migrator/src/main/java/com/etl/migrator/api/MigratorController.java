@@ -6,6 +6,8 @@ import com.etl.migrator.dto.TableDTO;
 import com.etl.migrator.dto.CollectionDTO;
 import com.etl.migrator.service.MigratorService;
 import lombok.RequiredArgsConstructor;
+
+import org.json.simple.parser.ParseException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.sql.SQLException;
@@ -27,11 +29,12 @@ public class MigratorController {
      * @param tableParams
      * @return
      * @throws SQLException
+     * @throws ParseException 
      */
     @PostMapping("makeCollectionsParams")
-    public  ResponseEntity<Object> makeCollectionParams(@RequestBody TableDTO tableParams) throws SQLException {
+    public  ResponseEntity<Object> makeCollectionParams(@RequestBody TableDTO tableParams) throws SQLException, ParseException {
         String data = migratorService.makeCollection(tableParams);
-        return ResponseEntity.ok(data);
+        return ResponseEntity.ok("Migration completed!");
     }
 
     /**

@@ -3,6 +3,7 @@ package com.etl.migrator.transformer;
 import java.util.*;
 
 import com.etl.migrator.constants.Constants;
+import com.etl.migrator.constants.NestedDocTransformed;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.mongodb.*;
 import com.mongodb.client.model.*;
@@ -23,7 +24,12 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.InsertManyOptions;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.InsertOneResult;
+import com.mongodb.client.result.UpdateResult;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.aggregation.StringOperators;
 
@@ -36,6 +42,8 @@ public class TransformerLogic {
 
 	private ConnectionString connectionString;
 	private MongoClientSettings settings;
+	MongoClient mongoClient;
+	MongoDatabase database;
 
 	public TransformerLogic() {
 		fixedTags = new ArrayList<String>();
@@ -54,6 +62,8 @@ public class TransformerLogic {
 						.version(ServerApiVersion.V1)
 						.build())
 				.build();
+		mongoClient = MongoClients.create(settings);
+		database = mongoClient.getDatabase("Migrator");
 	}
 
 	/**
@@ -63,15 +73,12 @@ public class TransformerLogic {
 	public void transformData (String row) {
 		JSONParser parser = new JSONParser();
 
-		try (MongoClient mongoClient = MongoClients.create(settings)){
+		try {
 			
 			JSONObject json = (JSONObject) parser.parse(row);
 			String collectionName = json.get("collection").toString();
 			
-			MongoDatabase database = mongoClient.getDatabase("Migrator");
-
-	        
-	        String keyMas = json.get("masterPk").toString();
+			String keyMas = json.get("masterPk").toString();
 	        String valueKeyMas = json.get(keyMas).toString();
 	        String migrationMode = json.get("migrationMode").toString();
 	        String childrenTable = json.get("childrenName").toString();
@@ -126,7 +133,14 @@ public class TransformerLogic {
 		        	break;
 		        default:
 		        	MongoCollection<Document> collect = database.getCollection(masterTable);
-		        	Bson updates = new Document("$push", new Document(json.get("childrenName").toString(),nestedDoc));
+		        	//List<Document> docList = new ArrayList<>();
+	 		        //docList.add(nestedDoc); //the child is added as an arrayList to make it an array and can insert a new employee there
+
+	 		        //doc.append(childrenTable, docList);
+		        	//Bson updates2 = Updates.combine(Updates.setOnInsert(doc), Updates.addToSet(childrenTable, nestedDoc));
+		        	Bson updates = Updates.addToSet(childrenTable, nestedDoc);
+		        	//UpdateOptions options = new UpdateOptions().upsert(true);
+		 	        //UpdateResult resultUpdate = collect.updateOne(query,updates2, options);
 		 	        Document resultUpdate = collect.findOneAndUpdate(query,updates);
 
 		 	        if(resultUpdate == null) { //if there is no row into mongodb it will be created
@@ -144,6 +158,7 @@ public class TransformerLogic {
 		 	        else {
 		 	        	System.out.println("Result ::: " + resultUpdate.toString());
 		 	        }
+		 	        //System.out.println("Result ::: " + resultUpdate.toString());
 	        }
 		} catch (MongoException me) {
             log.error("Unable to insert due to an error: " + me);
@@ -287,4 +302,34 @@ public class TransformerLogic {
 			log.error("Unable to insert: " + e);
 		}
 	}
+	
+	public void transformDataNested(NestedDocTransformed docs) {
+		System.out.println("Document processing :: processing ");
+		JSONParser parser = new JSONParser();
+
+		//try {
+		List<Document> JSONDocs = new ArrayList<>();
+		//StringBuilder masterTable = new StringBuilder();
+		docs.getDocs().forEach(doc ->{
+			try {
+				//System.out.println("Adding doc # " + i);
+		        Document mainDoct = Document.parse(doc.toString() );
+		        
+		        JSONDocs.add(mainDoct);
+	        	
+			} catch (MongoException me) {
+	            log.error("Unable to insert due to an error: " + me);
+	        }
+				
+		});
+		System.out.println("Document processing :: trying to insert now " + JSONDocs.size());
+		MongoCollection<Document> collect = database.getCollection(docs.getMasterTable());
+        InsertManyOptions opt = new InsertManyOptions();
+        opt.ordered(false);
+        
+        InsertManyResult result = collect.insertMany(JSONDocs, opt );
+        
+        System.out.println("Result ::: Documents where inserted. " + result.wasAcknowledged() );//just an acknowledge that the row was inserted
+	}
+	
 }
