@@ -9,7 +9,12 @@ import lombok.Setter;
 @Getter @Setter
 @RequiredArgsConstructor
 public class OneTableDTO {
-    private String fromTable;
+    public OneTableDTO(String table, String database) {
+		// TODO Auto-generated constructor stub
+    	fromTable = table;
+    	db = database;
+	}
+	private String fromTable;
     private String db;
 
 }

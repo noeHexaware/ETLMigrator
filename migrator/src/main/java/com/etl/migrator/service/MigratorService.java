@@ -223,12 +223,14 @@ public class MigratorService {
         // get params
         fromTable = oneTableParams.getFromTable();
         db = oneTableParams.getDb();
+        ArrayList<JSONObject> docs = new ArrayList<>();
+        JSONParser parser = new JSONParser();
         int fromColumnsCount = getListColumns(db, fromTable).size();
 
             String querySQL = "SELECT * FROM " + db + "." + fromTable + ";";
             ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
             ResultSetMetaData metadata = rs.getMetaData();
-
+            
             while (rs.next()) {
                 pojoFather = new Properties();
 
@@ -240,26 +242,28 @@ public class MigratorService {
 
 
                 //fixed tags to manage the connection, collection and nested Doc
-                pojoFather.put("collection", db);
-                pojoFather.put("masterTable", fromTable);
-
+                //pojoFather.put("collection", db);
+                //pojoFather.put("masterTable", fromTable);
+                
                 String doc = "{";
                 doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
                 doc+= "}";
 
-
+                try {
+					docs.add((JSONObject)parser.parse(doc));
+				} catch (ParseException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
                 //to send the response to postman
                 listFathers.add(pojoFather);
 
                 // send message to the producer
-                producer.sendMessage(topicNameOneTable, doc);
+               // producer.sendMessage(topicNameOneTable, doc);
             }
-        try {
-            listener.latch.await(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+            TransformerLogic trans = new TransformerLogic();
+            trans.transformDataNested(new NestedDocTransformed(fromTable, docs));
+            
         return listFathers.toString();
 
     }
@@ -292,7 +296,15 @@ public class MigratorService {
         collectionDTO.getTables().forEach(
                 (table) -> {
                     log.info("Fetching data from TABLE :: " + table);
-                    LinkedHashMap<String, Object> mapValues = new LinkedHashMap<>();
+                    
+                    try {
+						makeCollectionOneTable(new OneTableDTO(table, database));
+					} catch (SQLException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+                    
+                    /*LinkedHashMap<String, Object> mapValues = new LinkedHashMap<>();
                     List<String> documents = new ArrayList<>();
                     String querySQL = "SELECT * FROM " + database + "." + table;
                     int fromColumnsCount = getListColumns(database, table).size();
@@ -321,7 +333,7 @@ public class MigratorService {
                         log.info("Sending data to Producer ...");
                         result.append(mapValues);
                         producer.sendMessage(topicAllTables, json.toString());
-                    }
+                    }*/
                 });
         return result.toString().replace("\"", "").replace("\\","");
     }
@@ -376,9 +388,12 @@ public class MigratorService {
             String table = item.getPrimaryTable();
             querySQL += " INNER JOIN " + db + "." + table + " ON " + table + "." + item.getPrimaryKey() + "=" + pivotTable + "." + item.getForeignKey() + " ";
         }
-
+        
+        ArrayList<JSONObject> docs = new ArrayList<>();
+        JSONParser parser = new JSONParser();
+        
         try {
-            List<String> documents = new ArrayList<>();
+            //List<String> documents = new ArrayList<>();
             ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
             ResultSetMetaData metadata = rs.getMetaData();
             Properties pojoFather = new Properties();
@@ -390,18 +405,24 @@ public class MigratorService {
                             nonNull(rs.getString(i)) ? rs.getString(i) : "");
                 }
                 String doc = "{" + extractValues(pojoFather) + "}";
-                documents.add(doc);
+                //documents.add(doc);
+                docs.add((JSONObject) parser.parse(doc.toString()));
             }
-            mapValues.put(pivotTable, documents);
+            //mapValues.put(pivotTable, documents);
         } catch (SQLException e) {
             throw new RuntimeException(e);
-        }
+        } catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-        JSONObject json = new JSONObject(mapValues);
-        log.info("Sending data to Producer ...");
-        producer.sendMessage(topicManyTables, json.toString());
+        //JSONObject json = new JSONObject(mapValues);
+        TransformerLogic trans = new TransformerLogic();
+        trans.transformDataNested(new NestedDocTransformed(pivotTable, docs));
+        log.info("Sending data to Transformer ...");
+        //producer.sendMessage(topicManyTables, json.toString());
 
-        return json.toString().replace("\"", "").replace("\\","");
+        return docs.toString().replace("\"", "").replace("\\","");
     }
 
     /**
@@ -427,6 +448,9 @@ public class MigratorService {
         temp1 = temp1.substring(0, temp1.length() - 1);
         querySQL = "SELECT " + temp1 + " FROM " + db + "." + pivotTable + querySQL;
         log.info(querySQL);
+        
+        ArrayList<JSONObject> docs = new ArrayList<>();
+        JSONParser parser = new JSONParser();
 
         try {
             pojoFather = new Properties();
@@ -461,12 +485,12 @@ public class MigratorService {
                 String pojoSonJson2 =  extractValues(pojoSon2);
                 pojoSonJson2 = "{" + pojoSonJson2.substring(0, pojoSonJson2.length() -1) + "}";
 
-                pojoFather.put("database", db);
-                pojoFather.put("table", pivotTable);
-                pojoFather.put("children1", tableIndex1);
-                pojoFather.put("children2", tableIndex2);
-                pojoFather.put("firstPK", firstPK);
-                pojoFather.put("secondPK", secondPK);
+                //pojoFather.put("database", db);
+                //pojoFather.put("table", pivotTable);
+                //pojoFather.put("children1", tableIndex1);
+                //pojoFather.put("children2", tableIndex2);
+                //pojoFather.put("firstPK", firstPK);
+                //pojoFather.put("secondPK", secondPK);
 
                 String doc = "{";
                 doc+= extractValues(pojoFather); //method to create the json structure as string to work with on transformer stage
@@ -474,12 +498,18 @@ public class MigratorService {
                 doc+= ",\"" + tableIndex2+ "\":" + pojoSonJson2 + "}";
 
                 log.info(doc);
-                producer.sendMessage(topicManyTables, doc);
+                //producer.sendMessage(topicManyTables, doc);
+                docs.add((JSONObject) parser.parse(doc.toString()));
                 result.add(doc);
             }
+           TransformerLogic trans = new TransformerLogic();
+           trans.transformDataNested(new NestedDocTransformed(pivotTable, docs));
         } catch (SQLException e) {
             throw new RuntimeException(e);
-        }
+        } catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
         return result.toString();
     }
 }

@@ -46,7 +46,7 @@ public class MigratorController {
     @PostMapping("makeCollectionsParamsOne")
     public  ResponseEntity<Object> makeCollectionParamsOne(@RequestBody OneTableDTO oneTableParams) throws SQLException {
         String data = migratorService.makeCollectionOneTable(oneTableParams);
-        return ResponseEntity.ok(data);
+        return ResponseEntity.ok("Migration completed!");
     }
 
     /**
@@ -58,12 +58,12 @@ public class MigratorController {
     @PostMapping("processMigration")
     public ResponseEntity<Object> processMigrationTables(@RequestBody CollectionDTO collectionDTO) throws SQLException {
         String data = migratorService.processMigrationTables(collectionDTO);
-        return ResponseEntity.ok(data);
+        return ResponseEntity.ok("Migration completed!");
     }
 
     @PostMapping("processManyToMany")
     public ResponseEntity<Object> processManyToMany(@RequestBody CollectionDTO dto) throws SQLException {
         String data = migratorService.processManyToManyDifferentDoc(dto);
-        return ResponseEntity.ok(data);
+        return ResponseEntity.ok("Migration completed!");
     }
 }

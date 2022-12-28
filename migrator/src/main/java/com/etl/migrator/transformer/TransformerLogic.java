@@ -305,7 +305,61 @@ public class TransformerLogic {
 	
 	public void transformDataNested(NestedDocTransformed docs) {
 		System.out.println("Document processing :: processing ");
-		JSONParser parser = new JSONParser();
+		//JSONParser parser = new JSONParser();
+
+		//try {
+//		List<Document> JSONDocs = new ArrayList<>();
+//		//StringBuilder masterTable = new StringBuilder();
+//		docs.getDocs().forEach(doc ->{
+//			try {
+//				//System.out.println("Adding doc # " + i);
+//		        Document mainDoct = Document.parse(doc.toString() );
+//		        
+//		        JSONDocs.add(mainDoct);
+//	        	
+//			} catch (MongoException me) {
+//	            log.error("Unable to insert due to an error: " + me);
+//	        }
+//				
+//		});
+		String getMasterTable = docs.getMasterTable();
+		List<Document> JSONDocs = generateDocList(docs);
+		System.out.println("Document processing :: trying to insert now " + JSONDocs.size());
+		
+		
+		InsertManyOptions opt = new InsertManyOptions();
+        opt.ordered(false);
+        
+        int chunks = JSONDocs.size() / 100000;
+        if(chunks < 1) {
+        	insertChunks(JSONDocs, getMasterTable, opt);
+        } else {
+        	for(int a = 1 ; a <= chunks; a++) {
+        		insertChunks(JSONDocs.subList((a-1) * 100000, a*100000), getMasterTable, opt);
+        	}
+        	insertChunks(JSONDocs.subList(chunks * 100000, JSONDocs.size()), getMasterTable, opt);
+        }
+        
+        
+        //InsertManyResult result = 
+        //		collect.insertMany(JSONDocs, opt );
+        
+        //System.out.println("Result ::: Documents where inserted. ");// + result.wasAcknowledged() );//just an acknowledge that the row was inserted
+	}
+	
+	private void insertChunks(List<Document> chunk, String masterTable, InsertManyOptions opt) {
+		MongoCollection<Document> collect = database.getCollection(masterTable);
+		
+		InsertManyResult result = 
+        		collect.insertMany(chunk, opt );
+        
+        System.out.println("Result ::: Chunk of Documents where inserted. ");// + result.wasAcknowledged() );//just an acknowledge that the row was inserted
+	
+	}
+	
+	public List<Document> generateDocList(NestedDocTransformed docs) {
+		System.out.println("Document processing :: Generating Doc List ");
+		//JSONParser parser = new JSONParser();
 
 		//try {
 		List<Document> JSONDocs = new ArrayList<>();
@@ -317,19 +371,21 @@ public class TransformerLogic {
 		        
 		        JSONDocs.add(mainDoct);
 	        	
-			} catch (MongoException me) {
+			} catch (Exception me) {
 	            log.error("Unable to insert due to an error: " + me);
 	        }
 				
 		});
-		System.out.println("Document processing :: trying to insert now " + JSONDocs.size());
-		MongoCollection<Document> collect = database.getCollection(docs.getMasterTable());
-        InsertManyOptions opt = new InsertManyOptions();
-        opt.ordered(false);
-        
-        InsertManyResult result = collect.insertMany(JSONDocs, opt );
-        
-        System.out.println("Result ::: Documents where inserted. " + result.wasAcknowledged() );//just an acknowledge that the row was inserted
+		return JSONDocs;
+//		System.out.println("Document processing :: trying to insert now " + JSONDocs.size());
+//		MongoCollection<Document> collect = database.getCollection(docs.getMasterTable());
+//		
+//		InsertManyOptions opt = new InsertManyOptions();
+//        opt.ordered(false);
+//        
+//        InsertManyResult result = collect.insertMany(JSONDocs, opt );
+//        
+//        System.out.println("Result ::: Documents where inserted. " + result.wasAcknowledged() );//just an acknowledge that the row was inserted
 	}
 	
 }
