@@ -48,6 +48,13 @@ public class MessageConsumer {
         TransformerLogic trans = new TransformerLogic();
         trans.transformDataManyTables(message);
     }
+
+    @KafkaListener(topics = "${message.topicAllTables.name}", groupId = "group1", containerFactory = "group1KafkaListenerContainerFactory")
+    public void listenGroup1ManyTables(String message) {
+        System.out.println("Received Message from group 'group1':: " + message);
+        TransformerLogic trans = new TransformerLogic();
+        trans.transformAllTables(message);
+    }
     
     @SneakyThrows
     private void sleep() {
