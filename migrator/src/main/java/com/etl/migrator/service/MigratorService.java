@@ -148,7 +148,7 @@ public class MigratorService {
             	children.add(pojoSon);
             	listFathers.get(primKeyValue).replace("children", children);
             		//break;
-            	
+
             }
             
             if(!exists) {
@@ -502,6 +502,7 @@ public class MigratorService {
                 docs.add((JSONObject) parser.parse(doc.toString()));
                 result.add(doc);
             }
+            log.info("DOCS :: " + docs);
            TransformerLogic trans = new TransformerLogic();
            trans.transformDataNested(new NestedDocTransformed(pivotTable, docs));
         } catch (SQLException e) {
@@ -511,5 +512,98 @@ public class MigratorService {
 			e.printStackTrace();
 		}
         return result.toString();
+    }
+
+    /**
+     * Create collection Many to Many
+     * @param manyDTO
+     * @return
+     * @throws SQLException
+     */
+    public String makeCollectionManyToMany(CollectionDTO manyDTO) throws SQLException {
+        Properties pojoFather;
+        Map<Object, Properties> listFathers = new HashMap<Object, Properties>();
+
+        String pivotTable = manyDTO.getPivotTable();
+        String db = manyDTO.getDatabase();
+        String fromTable = manyDTO.getManyTable().get(0).getPrimaryTable();
+        String fromIdKey = manyDTO.getManyTable().get(0).getPrimaryKey();
+        String toTable = manyDTO.getManyTable().get(1).getPrimaryTable();
+
+        String querySQL = "";
+        String temp1 = "";
+        for(ManyTableDTO item : manyDTO.getManyTable()){
+            String table = item.getPrimaryTable();
+            temp1 +=  db + "." + table + ".* ,";
+            querySQL += " INNER JOIN " + db + "." + table + " ON " + table + "." + item.getPrimaryKey() + "=" + pivotTable + "." + item.getForeignKey() + " ";
+        }
+        temp1 = temp1.substring(0, temp1.length() - 1);
+        querySQL = "SELECT " + temp1 + " FROM " + db + "." + pivotTable + querySQL;
+        log.info("QUERY :: " + querySQL);
+        int fromColumnsCount = getListColumns(db, fromTable).size();
+
+        ResultSet rs = this.connection.createStatement().executeQuery(querySQL);
+
+        ResultSetMetaData metadata = rs.getMetaData();
+        int columnCount = metadata.getColumnCount();
+
+        TransformerLogic trans = new TransformerLogic();
+
+        while (rs.next()) {
+            pojoFather = new Properties();
+
+            for (int i = 1; i <= fromColumnsCount; i++) {
+                pojoFather.put(metadata.getColumnName(i), rs.getString(i));
+            }
+
+            Properties pojoSon = new Properties();
+            for (int i = fromColumnsCount + 1; i <= columnCount; i++) {
+                pojoSon.put(metadata.getColumnName(i), rs.getString(i));
+            }
+
+            String primKeyValue = pojoFather.getProperty(fromIdKey);
+            boolean exists = false;
+            if(listFathers.containsKey(primKeyValue)) {
+                exists = true;
+                ArrayList<Properties> children = (ArrayList<Properties>) listFathers.get(primKeyValue).get("children");
+                children.add(pojoSon);
+                listFathers.get(primKeyValue).replace("children", children);
+            }
+
+            if(!exists) {
+                ArrayList<Properties> childrens = new ArrayList<Properties>();
+                childrens.add(pojoSon);
+                pojoFather.put("children", childrens);
+                listFathers.put(primKeyValue, pojoFather);
+            }
+        }
+
+        ArrayList<JSONObject> docs = new ArrayList<>();
+        JSONParser parser = new JSONParser();
+        System.out.println("Document processing :: start ");
+        listFathers.forEach((key, value) -> {
+            Properties father = value;
+            StringBuilder doc = new StringBuilder("{");
+            doc.append(extractValues(father)); //method to create the json structure as string to work with on transformer stage
+            String pojoSonJson ="[";
+
+            ArrayList<Properties> children = (ArrayList<Properties>) father.get("children");
+            for(Properties child : children) {
+                pojoSonJson += "{";
+                pojoSonJson += extractValues(child);
+                pojoSonJson += "},";
+            }
+            pojoSonJson = pojoSonJson.substring(0, pojoSonJson.length() - 1);
+
+            doc.append("\"" + toTable +"\":" + pojoSonJson + "]}");
+
+            try {
+                docs.add((JSONObject) parser.parse(doc.toString()));
+            } catch (ParseException e) {
+                log.info("Error parsing JSON ::" + e.getMessage());
+            }
+        });
+        trans.transformDataNested(new NestedDocTransformed(fromTable, docs));
+        return listFathers.toString();
     }
 }

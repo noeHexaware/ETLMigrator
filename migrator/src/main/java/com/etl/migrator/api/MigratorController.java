@@ -50,7 +50,7 @@ public class MigratorController {
     }
 
     /**
-     * Process Migration 3 or more tables
+     * Process Migration 2 or more tables
      * @param collectionDTO
      * @return
      * @throws SQLException
@@ -63,7 +63,7 @@ public class MigratorController {
 
     @PostMapping("processManyToMany")
     public ResponseEntity<Object> processManyToMany(@RequestBody CollectionDTO dto) throws SQLException {
-        String data = migratorService.processManyToManyDifferentDoc(dto);
+        String data = migratorService.makeCollectionManyToMany(dto);
         return ResponseEntity.ok("Migration completed!");
     }
 }

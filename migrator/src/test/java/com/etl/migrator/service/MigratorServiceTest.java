@@ -1,6 +1,7 @@
 package com.etl.migrator.service;
 
 import com.etl.migrator.dto.TableDTO;
+import org.json.simple.parser.ParseException;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +39,7 @@ public class MigratorServiceTest {
 
     @Disabled
     @Test
-    public void testMakeCollection() throws SQLException {
+    public void testMakeCollection() throws SQLException, ParseException {
         // MigratorService migratorService1 = mock(MigratorService.class);
         TableDTO tableDTO = new TableDTO();
         tableDTO.setDb("migrator");
