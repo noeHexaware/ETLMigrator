@@ -3,6 +3,7 @@ package com.etl.migrator.api;
 import com.etl.migrator.dto.ManyTableDTO;
 import com.etl.migrator.dto.OneTableDTO;
 import com.etl.migrator.dto.TableDTO;
+import com.etl.migrator.dto.TwoInvertTablesDTO;
 import com.etl.migrator.dto.CollectionDTO;
 import com.etl.migrator.service.MigratorService;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,12 @@ public class MigratorController {
     @PostMapping("makeCollectionsParams")
     public  ResponseEntity<Object> makeCollectionParams(@RequestBody TableDTO tableParams) throws SQLException, ParseException {
         String data = migratorService.makeCollection(tableParams);
+        return ResponseEntity.ok("Migration completed!");
+    }
+    
+    @PostMapping("invertRelation")
+    public  ResponseEntity<Object> invertRelation(@RequestBody TwoInvertTablesDTO tableParams) throws SQLException, ParseException {
+        String data = migratorService.processTwoTables(tableParams);
         return ResponseEntity.ok("Migration completed!");
     }
 
