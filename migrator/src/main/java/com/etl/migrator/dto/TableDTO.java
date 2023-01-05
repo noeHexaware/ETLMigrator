@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter @Setter
 @RequiredArgsConstructor
 public class TableDTO {
@@ -13,5 +15,5 @@ public class TableDTO {
     private String foreignKey;
     private String db;
     private String migrationMode;
-
+    private List<String> tables;
 }

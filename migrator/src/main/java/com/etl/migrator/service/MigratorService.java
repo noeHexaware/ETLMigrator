@@ -93,6 +93,19 @@ public class MigratorService {
         return tables;
     }
 
+    private void processingTables(String database, List<String> tables){
+        tables.forEach(
+                (table) -> {
+                    log.info("Fetching data from TABLE :: " + table);
+                    try {
+                        makeCollectionOneTable(new OneTableDTO(table, database));
+                    } catch (SQLException e) {
+                        log.error(e.getMessage());
+                    }
+                });
+
+    }
+
     /**
      * Make the collection, extract from tables in MySQL
      * @param tableParams
@@ -102,6 +115,10 @@ public class MigratorService {
      */
     public String makeCollection(TableDTO tableParams) throws SQLException, ParseException {
         String fromTable, fromIdKey, toTable, foreignKey, db, migrationMode;
+
+        if(nonNull(tableParams.getTables())){
+            processingTables(tableParams.getDb(), tableParams.getTables());
+        }
 
         // get params
         fromTable = tableParams.getFromTable();
@@ -164,8 +181,7 @@ public class MigratorService {
                 try {
 					docs.add((JSONObject)parser.parse(doc));
 				} catch (ParseException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+                    log.info(e.getMessage());
 				}
                 //to send the response to postman
                 listFathers.add(pojoFather);
@@ -177,7 +193,6 @@ public class MigratorService {
             trans.transformDataNested(new NestedDocTransformed(fromTable, docs));
             
         return listFathers.toString();
-
     }
 
     /**
@@ -212,10 +227,8 @@ public class MigratorService {
                     try {
 						makeCollectionOneTable(new OneTableDTO(table, database));
 					} catch (SQLException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+                        log.error(e.getMessage());
 					}
-                  
                 });
         return result.toString().replace("\"", "").replace("\\","");
     }
@@ -526,12 +539,16 @@ public class MigratorService {
             pojoFather = new Properties();
 
             for (int i = 1; i <= fromColumnsCount; i++) {
-                pojoFather.put(metadata.getColumnName(i), rs.getString(i));
+                pojoFather.put(
+                        nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                        nonNull(rs.getString(i)) ? rs.getString(i) : "");
             }
 
             Properties pojoSon = new Properties();
             for (int i = fromColumnsCount + 1; i <= columnCount; i++) {
-                pojoSon.put(metadata.getColumnName(i), rs.getString(i));
+                pojoSon.put(
+                        nonNull(metadata.getColumnName(i)) ? metadata.getColumnName(i) : "",
+                        nonNull(rs.getString(i)) ? rs.getString(i) : "");
             }
             
             String primKeyValue = pojoFather.getProperty(primKey);
@@ -542,7 +559,6 @@ public class MigratorService {
             	children.add(pojoSon);
             	listFathers.get(primKeyValue).replace("children", children);
             		//break;
-
             }
             
             if(!exists) {
